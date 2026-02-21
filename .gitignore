@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Python virtual environment
+venv/
+__pycache__/
+
+# Environment variables (API keys)
+.env
