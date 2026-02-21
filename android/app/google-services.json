@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "679968101906",
+    "project_id": "elo-ai-5e657",
+    "storage_bucket": "elo-ai-5e657.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:679968101906:android:5a6c7af4c83afcb2b2aacb",
+        "android_client_info": {
+          "package_name": "com.example.elo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBck68eY5Ns5kzevKA_Bu5d5ZeqpLdWk4w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
