@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,61 +15,10 @@ from datetime import datetime
 
 load_dotenv()
 
-# --- Persistence Layer ---
-DB_FILE = "users_db.json"
 UPLOADS_DIR = "uploads"
 
 # Ensure uploads directory exists
 os.makedirs(UPLOADS_DIR, exist_ok=True)
-
-def load_db() -> Dict:
-# ... (existing load_db content) ...
-    if not os.path.exists(DB_FILE):
-        return {"users": {}}
-    try:
-        with open(DB_FILE, "r") as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        return {"users": {}}
-
-def save_db(data: Dict):
-    with open(DB_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-def get_user_data(user_id: str) -> Dict:
-    db = load_db()
-    users = db.get("users", {})
-    if user_id not in users:
-        # Default user structure
-        users[user_id] = {
-            "user_id": user_id,
-            "total_conversations": 0,
-            "total_time_minutes": 0,
-            "weekly_xp": 0,  # New: for leaderboard
-            "current_level": "beginner",
-            "completed_scenarios": [],
-            "last_active": datetime.now().isoformat(),
-            "display_name": f"User {user_id[-4:]}" # Placeholder name
-        }
-        save_db(db)
-        return users[user_id]
-    return users[user_id]
-
-def update_user_data(user_id: str, data: Dict):
-    db = load_db()
-    if "users" not in db:
-        db["users"] = {}
-    
-    # Ensure user exists
-    if user_id not in db["users"]:
-        get_user_data(user_id) # create default
-        db = load_db() # reload
-    
-    # Update fields
-    db["users"][user_id].update(data)
-    save_db(db)
-
-# --- End Persistence Layer ---
 
 # Lifespan event handler (yeni yöntem)
 @asynccontextmanager
@@ -107,8 +57,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/privacy", response_class=HTMLResponse)
+async def get_privacy_policy():
+    try:
+        with open("privacy_policy.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "<h1>Privacy Policy</h1><p>Not found.</p>"
+
 @app.post("/upload/avatar")
-async def upload_avatar(file: UploadFile = File(...)):
+async def upload_avatar(request: Request, file: UploadFile = File(...)):
     """Avatar yükle ve URL döndür"""
     try:
         # Dosya uzantısını al
@@ -124,8 +82,9 @@ async def upload_avatar(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # URL oluştur (Local host için)
-        file_url = f"http://localhost:8000/uploads/{filename}"
+        # Dinamik URL oluştur (localhost veya production)
+        base_url = str(request.base_url).rstrip("/")
+        file_url = f"{base_url}/uploads/{filename}"
         
         return {"url": file_url}
         
@@ -181,43 +140,51 @@ class LeaderboardEntry(BaseModel):
 SCENARIOS = [
     {
         "id": "restaurant",
-        "title": "Restoranda Sipariş",
-        "description": "Bir restoranda yemek siparişi vermeyi öğren",
+        "title": "Ordering at a Restaurant",
+        "description": "Learn how to order food at a restaurant",
         "difficulty": "beginner",
         "estimated_time": 5,
         "system_prompt": "You are a friendly waiter at a restaurant. Help the user practice ordering food in English. Speak naturally but clearly. After each user message, provide gentle corrections if needed."
     },
     {
         "id": "job_interview",
-        "title": "İş Görüşmesi",
-        "description": "İş görüşmesinde kendinizi tanıtın ve sorulara cevap verin",
+        "title": "Job Interview",
+        "description": "Introduce yourself and answer questions in a job interview",
         "difficulty": "intermediate",
         "estimated_time": 10,
         "system_prompt": "You are a professional interviewer conducting a job interview. Ask relevant questions and help the user practice professional English. Be encouraging but realistic."
     },
     {
         "id": "shopping",
-        "title": "Alışveriş",
-        "description": "Mağazada alışveriş yaparken İngilizce konuş",
+        "title": "Shopping",
+        "description": "Speak English while shopping at a store",
         "difficulty": "beginner",
         "estimated_time": 5,
         "system_prompt": "You are a helpful shop assistant. Help the user practice shopping vocabulary and common phrases used when buying things."
     },
     {
         "id": "airport",
-        "title": "Havalimanında",
-        "description": "Check-in, pasaport kontrolü ve güvenlik işlemleri",
+        "title": "At the Airport",
+        "description": "Check-in, passport control and security procedures",
         "difficulty": "intermediate",
         "estimated_time": 8,
         "system_prompt": "You are an airport staff member (check-in agent, security, or customs). Help the user practice airport-related English conversations."
     },
     {
         "id": "small_talk",
-        "title": "Günlük Sohbet",
-        "description": "Yeni tanıştığınız biriyle arkadaşça sohbet edin",
+        "title": "Small Talk",
+        "description": "Have a friendly chat with someone you just met",
         "difficulty": "beginner",
         "estimated_time": 5,
         "system_prompt": "You are a friendly person meeting someone new. Have a casual conversation, ask about their interests, hobbies, and life. Keep it natural and friendly."
+    },
+    {
+        "id": "general",
+        "title": "General Conversation (Premium)",
+        "description": "Unlimited conversation practice on any topic",
+        "difficulty": "all levels",
+        "estimated_time": 0,
+        "system_prompt": "You are a helpful and friendly English language partner. The user can discuss any topic with you. Keep the conversation engaging naturally."
     }
 ]
 
@@ -228,8 +195,8 @@ def get_scenario_by_id(scenario_id: str):
 async def root():
     return {
         "message": "Language Learning API is running",
-        "version": "2.1.0 - Leaderboard Edition",
-        "endpoints": ["/scenarios", "/conversation", "/speech-to-text", "/user/progress/{user_id}", "/leaderboard"]
+        "version": "2.2.0 - Stateless Edition",
+        "endpoints": ["/scenarios", "/conversation", "/speech-to-text"]
     }
 
 @app.get("/scenarios", response_model=List[ScenarioInfo])
@@ -332,76 +299,6 @@ async def speech_to_text(audio: UploadFile = File(...)):
         "confidence": 0.0,
         "words": []
     }
-
-@app.get("/user/progress/{user_id}", response_model=UserProgress)
-async def get_user_progress(user_id: str):
-    """Kullanıcı ilerlemesini DB'den döndürür"""
-    user_data = get_user_data(user_id)
-    return UserProgress(**user_data)
-
-@app.post("/user/progress/{user_id}")
-async def update_user_progress(user_id: str, update: ProgressUpdate):
-    """Kullanıcı ilerlemesini günceller"""
-    user_data = get_user_data(user_id)
-    
-    # Yeni değerleri hazırla
-    new_data = {}
-    if update.total_conversations is not None:
-        new_data["total_conversations"] = update.total_conversations
-    if update.total_time_minutes is not None:
-        new_data["total_time_minutes"] = update.total_time_minutes
-    if update.display_name:
-        new_data["display_name"] = update.display_name
-        
-    if update.completed_scenario:
-        scenarios = user_data.get("completed_scenarios", [])
-        if update.completed_scenario not in scenarios:
-            scenarios.append(update.completed_scenario)
-            new_data["completed_scenarios"] = scenarios
-            
-    if update.added_xp:
-        current_xp = user_data.get("weekly_xp", 0)
-        new_data["weekly_xp"] = current_xp + update.added_xp
-        
-    new_data["last_active"] = datetime.now().isoformat()
-    
-    # DB Güncelle
-    update_user_data(user_id, new_data)
-    
-    return {"status": "success", "updated_fields": list(new_data.keys())}
-
-@app.get("/leaderboard", response_model=List[LeaderboardEntry])
-async def get_leaderboard():
-    """Haftalık liderlik tablosunu döndürür"""
-    db = load_db()
-    users = db.get("users", {})
-    
-    # Listeye çevir
-    user_list = []
-    for uid, data in users.items():
-        user_list.append({
-            "user_id": uid,
-            "display_name": data.get("display_name", f"User {uid[-4:]}"),
-            "weekly_xp": data.get("weekly_xp", 0),
-            "avatar_url": data.get("avatar_url")
-        })
-    
-    # Puanına göre sırala (büyükten küçüğe)
-    sorted_users = sorted(user_list, key=lambda x: x["weekly_xp"], reverse=True)
-    
-    # Top 50'yi al ve rank ekle
-    leaderboard = []
-    for idx, user in enumerate(sorted_users[:50]):
-        entry = LeaderboardEntry(
-            rank=idx + 1,
-            user_id=user["user_id"],
-            display_name=user["display_name"],
-            weekly_xp=user["weekly_xp"],
-            avatar_url=user["avatar_url"]
-        )
-        leaderboard.append(entry)
-        
-    return leaderboard
 
 
 # IELTS Speaking Models
@@ -646,3 +543,5 @@ Provide your assessment in the following JSON format ONLY (no other text):
     except Exception as e:
         print(f"IELTS Evaluation Error: {e}")
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+# Test 
