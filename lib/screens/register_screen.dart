@@ -40,22 +40,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (mounted) {
       if (success) {
-        // Kayıt başarılı - çıkış yap ve login sayfasına yönlendir
+        // Registration successful - sign out and redirect to login
         await authProvider.signOut();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Kayıt başarılı! E-posta adresinize doğrulama linki gönderildi.',
+              'Registration successful! A verification link has been sent to your email.',
             ),
             backgroundColor: Colors.green,
             duration: Duration(seconds: 4),
           ),
         );
-        Navigator.pop(context); // Login sayfasına geri dön
+        Navigator.pop(context); // Go back to Login
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authProvider.errorMessage ?? 'Kayıt başarısız'),
+            content: Text(authProvider.errorMessage ?? 'Registration failed'),
             backgroundColor: Colors.red.shade600,
           ),
         );
@@ -127,7 +127,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Hesap Oluştur',
+                      'Create Account',
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
@@ -136,7 +136,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'İngilizce öğrenme yolculuğuna başlayın',
+                      'Start your English learning journey',
                       style: TextStyle(
                         fontSize: 15,
                         color: Colors.white.withOpacity(0.9),
@@ -161,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _nameController,
                         textCapitalization: TextCapitalization.words,
                         decoration: InputDecoration(
-                          labelText: 'Ad Soyad',
+                          labelText: 'Full Name',
                           prefixIcon: const Icon(Icons.person_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -171,7 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Adınızı giriniz';
+                            return 'Enter your name';
                           }
                           return null;
                         },
@@ -184,7 +184,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
-                          labelText: 'E-posta',
+                          labelText: 'Email',
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -194,14 +194,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'E-posta giriniz';
+                            return 'Enter your email';
                           }
                           // Strict email validation regex
                           final emailRegex = RegExp(
                             r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
                           );
                           if (!emailRegex.hasMatch(value)) {
-                            return 'Geçerli bir e-posta giriniz (örn: ad@gmail.com)';
+                            return 'Enter a valid email (e.g. name@gmail.com)';
                           }
                           // Block common fake/temporary email domains
                           final fakeDomains = [
@@ -220,7 +220,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ];
                           final domain = value.split('@').last.toLowerCase();
                           if (fakeDomains.contains(domain)) {
-                            return 'Lütfen gerçek bir e-posta adresi kullanın';
+                            return 'Please use a real email address';
                           }
                           return null;
                         },
@@ -233,7 +233,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          labelText: 'Şifre',
+                          labelText: 'Password',
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -255,10 +255,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Şifre giriniz';
+                            return 'Enter your password';
                           }
                           if (value.length < 6) {
-                            return 'Şifre en az 6 karakter olmalı';
+                            return 'Password must be at least 6 characters';
                           }
                           return null;
                         },
@@ -271,7 +271,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _confirmPasswordController,
                         obscureText: _obscureConfirmPassword,
                         decoration: InputDecoration(
-                          labelText: 'Şifre Tekrar',
+                          labelText: 'Confirm Password',
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -294,10 +294,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Şifreyi tekrar giriniz';
+                            return 'Enter your password again';
                           }
                           if (value != _passwordController.text) {
-                            return 'Şifreler eşleşmiyor';
+                            return 'Passwords do not match';
                           }
                           return null;
                         },
@@ -331,7 +331,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                                   )
                                   : const Text(
-                                    'Kayıt Ol',
+                                    'Sign Up',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
@@ -347,7 +347,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Zaten hesabınız var mı? ',
+                            'Already have an account? ',
                             style: TextStyle(color: Colors.grey.shade600),
                           ),
                           TextButton(
@@ -355,7 +355,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               Navigator.pop(context);
                             },
                             child: Text(
-                              'Giriş Yap',
+                              'Log In',
                               style: TextStyle(
                                 color: primaryColor,
                                 fontWeight: FontWeight.w600,

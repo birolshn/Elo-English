@@ -59,10 +59,10 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAmWH9je91xbxGF24zzlzieHmZGv7hi8SU',
-    appId: '1:679968101906:ios:28e382dc63efc9acb2aacb',
+    appId: '1:679968101906:ios:8d725babf675917bb2aacb',
     messagingSenderId: '679968101906',
     projectId: 'elo-ai-5e657',
     storageBucket: 'elo-ai-5e657.firebasestorage.app',
-    iosBundleId: 'com.example.elo',
+    iosBundleId: 'com.birolsahin.eloenglish',
   );
 }

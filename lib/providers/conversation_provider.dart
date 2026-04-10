@@ -27,6 +27,9 @@ class ConversationProvider with ChangeNotifier {
   bool get isTimeUp => _isTimeUp;
 
   String get remainingTimeFormatted {
+    if (_currentScenario != null && _currentScenario!.estimatedTime <= 0) {
+      return '∞';
+    }
     final minutes = _remainingSeconds ~/ 60;
     final seconds = _remainingSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
@@ -55,6 +58,13 @@ class ConversationProvider with ChangeNotifier {
   }
 
   void _startTimer(int durationMinutes) {
+    if (durationMinutes <= 0) {
+      _remainingSeconds = 0;
+      _elapsedSeconds = 0;
+      _timer?.cancel();
+      return;
+    }
+
     _remainingSeconds = durationMinutes * 60;
     _elapsedSeconds = 0;
 

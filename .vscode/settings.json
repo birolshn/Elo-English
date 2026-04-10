@@ -1,3 +1,12 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "python.defaultInterpreterPath": "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/bin/python3.13",
+    "python.analysis.extraPaths": [
+        "/Users/birolsahin/Desktop/flutter_projects/elo/lib/backend"
+    ],
+    "python.experiments.optOutFrom": [
+        "pythonTerminalEnvVarActivation"
+    ],
+    "python.envFile": "${workspaceFolder}/lib/backend/.env",
+    "python.analysis.typeCheckingMode": "off"
 }

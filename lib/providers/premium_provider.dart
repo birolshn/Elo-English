@@ -1,15 +1,17 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../models/models.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:purchases_ui_flutter/purchases_ui_flutter.dart';
+import '../services/notification_service.dart';
 
 class PremiumProvider with ChangeNotifier {
-  PremiumStatus _status = PremiumStatus();
+  bool _isPremium = false;
   bool _isLoading = false;
+  String? _subscriptionType;
 
-  PremiumStatus get status => _status;
+  bool get isPremium => _isPremium;
   bool get isLoading => _isLoading;
-  bool get isPremium => _status.isActive;
+  String? get subscriptionType => _subscriptionType;
 
   PremiumProvider() {
     _initialize();
@@ -19,32 +21,97 @@ class PremiumProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    // Ülke tespiti
-    final isTurkish = _detectTurkishUser();
-    final priceDisplay = isTurkish ? '249 TL/ay' : '\$9.99/mo';
-
-    // Kayıtlı premium durumunu yükle
-    final prefs = await SharedPreferences.getInstance();
-    final isPremium = prefs.getBool('is_premium') ?? false;
-    final expiryTimestamp = prefs.getInt('premium_expiry');
-    final subscriptionType = prefs.getString('subscription_type');
-
-    DateTime? expiryDate;
-    if (expiryTimestamp != null) {
-      expiryDate = DateTime.fromMillisecondsSinceEpoch(expiryTimestamp);
-    }
-
-    _status = PremiumStatus(
-      isPremium: isPremium,
-      expiryDate: expiryDate,
-      subscriptionType: subscriptionType,
-      priceDisplay: priceDisplay,
-      isTurkishUser: isTurkish,
-    );
+    await checkPremiumStatus();
 
     _isLoading = false;
     notifyListeners();
   }
+
+  /// RevenueCat'ten premium durumunu kontrol et
+  Future<void> checkPremiumStatus() async {
+    try {
+      if (!Platform.isIOS) return;
+
+      final customerInfo = await Purchases.getCustomerInfo();
+      _updatePremiumFromCustomerInfo(customerInfo);
+    } catch (e) {
+      debugPrint('RevenueCat premium kontrol hatası: $e');
+      _isPremium = false;
+    }
+    notifyListeners();
+  }
+
+  void _updatePremiumFromCustomerInfo(CustomerInfo customerInfo) {
+    final entitlement = customerInfo.entitlements.all['premium'];
+    _isPremium = entitlement?.isActive ?? false;
+
+    if (_isPremium) {
+      final productId = entitlement?.productIdentifier ?? '';
+      if (productId.contains('yearly') || productId.contains('annual')) {
+        _subscriptionType = 'yearly';
+      } else if (productId.contains('6month')) {
+        _subscriptionType = '6month';
+      } else if (productId.contains('3month')) {
+        _subscriptionType = '3month';
+      } else {
+        _subscriptionType = 'monthly';
+      }
+    } else {
+      _subscriptionType = null;
+    }
+
+    // Update notifications based on new premium status
+    NotificationService().setupNotifications(isPremium: _isPremium);
+  }
+
+  /// RevenueCat paywall'ını göster
+  Future<bool> showPaywall() async {
+    try {
+      final paywallResult = await RevenueCatUI.presentPaywallIfNeeded('premium');
+
+      if (paywallResult == PaywallResult.purchased ||
+          paywallResult == PaywallResult.restored) {
+        await checkPremiumStatus();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Paywall hatası: $e');
+      return false;
+    }
+  }
+
+  /// Satın alma işlemini geri yükle
+  Future<bool> restorePurchases() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final customerInfo = await Purchases.restorePurchases();
+      _updatePremiumFromCustomerInfo(customerInfo);
+
+      _isLoading = false;
+      notifyListeners();
+      return _isPremium;
+    } catch (e) {
+      debugPrint('Restore hatası: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // --- UI İçin Fiyat Getters (Gerekirse) ---
+
+  bool get _isTR => _detectTurkishUser();
+
+  String get monthlyPrice => _isTR ? '129 TL' : '\$5.99';
+  String get threeMonthPrice => _isTR ? '299 TL' : '\$14.99';
+  String get sixMonthPrice => _isTR ? '499 TL' : '\$24.99';
+  String get yearlyPrice => _isTR ? '799 TL' : '\$39.99';
+
+  // Yıllık paketin aylık karşılığı (reklam için)
+  String get yearlyMonthlyEquivalent => _isTR ? '66 TL' : '\$3.33';
 
   bool _detectTurkishUser() {
     try {
@@ -53,65 +120,5 @@ class PremiumProvider with ChangeNotifier {
     } catch (e) {
       return false;
     }
-  }
-
-  String get monthlyPrice => _status.isTurkishUser ? '249 TL' : '\$9.99';
-  String get yearlyPrice => _status.isTurkishUser ? '1.999 TL' : '\$99.99';
-
-  /// Premium satın alma (simülasyon - gerçek uygulamada RevenueCat kullanılacak)
-  Future<bool> purchasePremium({String type = 'monthly'}) async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      // Simülasyon: gerçek uygulamada burada RevenueCat/Play Billing çağrısı yapılır
-      await Future.delayed(const Duration(seconds: 1));
-
-      // Başarılı satın alma simülasyonu
-      final expiryDate =
-          type == 'yearly'
-              ? DateTime.now().add(const Duration(days: 365))
-              : DateTime.now().add(const Duration(days: 30));
-
-      // Kaydet
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_premium', true);
-      await prefs.setInt('premium_expiry', expiryDate.millisecondsSinceEpoch);
-      await prefs.setString('subscription_type', type);
-
-      _status = _status.copyWith(
-        isPremium: true,
-        expiryDate: expiryDate,
-        subscriptionType: type,
-      );
-
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  /// Premium durumunu kontrol et
-  Future<void> checkPremiumStatus() async {
-    await _initialize();
-  }
-
-  /// Premium'u iptal et (test için)
-  Future<void> cancelPremium() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('is_premium');
-    await prefs.remove('premium_expiry');
-    await prefs.remove('subscription_type');
-
-    _status = PremiumStatus(
-      isPremium: false,
-      priceDisplay: _status.priceDisplay,
-      isTurkishUser: _status.isTurkishUser,
-    );
-    notifyListeners();
   }
 }

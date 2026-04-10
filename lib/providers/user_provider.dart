@@ -1,11 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
-import '../services/api_service.dart';
 
 class UserProvider with ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   UserProgress? _progress;
   User? _authUser;
   String _userId = 'user_123'; // Fallback / Dev ID
@@ -46,6 +46,10 @@ class UserProvider with ChangeNotifier {
         dailyScenarioLimit,
       );
 
+  /// Firestore'daki kullanıcı doküman referansı
+  DocumentReference _userDoc(String uid) =>
+      _firestore.collection('users').doc(uid);
+
   void updateAuthUser(User? user) {
     _authUser = user;
     if (user != null) {
@@ -70,33 +74,51 @@ class UserProvider with ChangeNotifier {
       await _loadPersistentStats();
       await _loadUsageStats();
 
-      // 2. Backend'den güncel verileri çek ve senkronize et
+      // 2. Firestore'dan güncel verileri çek ve senkronize et
       try {
-        final backendProgress = await _apiService.getUserProgress(userId);
+        final doc = await _userDoc(userId).get();
 
-        // Backend verisi daha yeniyse merge et
-        if (backendProgress.totalConversations >
-            (_progress?.totalConversations ?? 0)) {
-          _progress = backendProgress;
-          // Local'i güncelle
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt(
-            'total_conversations',
-            _progress!.totalConversations,
+        if (doc.exists) {
+          final data = doc.data() as Map<String, dynamic>;
+
+          final firestoreProgress = UserProgress(
+            userId: userId,
+            totalConversations: data['total_conversations'] ?? 0,
+            totalTimeMinutes: data['total_time_minutes'] ?? 0,
+            usedTimeMinutes: data['used_time_minutes'] ?? 0,
+            currentLevel: data['current_level'] ?? 'beginner',
+            completedScenarios:
+                List<String>.from(data['completed_scenarios'] ?? []),
+            weeklyXp: data['weekly_xp'] ?? 0,
           );
-          await prefs.setInt('total_time_minutes', _progress!.totalTimeMinutes);
-          await prefs.setStringList(
-            'completed_scenarios',
-            _progress!.completedScenarios,
-          );
-          await prefs.setString('current_level', _progress!.currentLevel);
+
+          // Firestore verisi daha yeniyse merge et
+          if (firestoreProgress.totalConversations >
+              (_progress?.totalConversations ?? 0)) {
+            _progress = firestoreProgress;
+            // Local'i güncelle
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setInt(
+              'total_conversations',
+              _progress!.totalConversations,
+            );
+            await prefs.setInt(
+              'total_time_minutes',
+              _progress!.totalTimeMinutes,
+            );
+            await prefs.setStringList(
+              'completed_scenarios',
+              _progress!.completedScenarios,
+            );
+            await prefs.setString('current_level', _progress!.currentLevel);
+          }
+        } else {
+          // Firestore'da kullanıcı yoksa oluştur
+          await _createFirestoreUser();
         }
-
-        // Rank bilgisini al
-        _currentRank = backendProgress.rank;
       } catch (e) {
-        debugPrint('Backend sync error: $e');
-        // Backend hatası olsa bile local veriyle devam et
+        debugPrint('Firestore sync error: $e');
+        // Firestore hatası olsa bile local veriyle devam et
       }
 
       _updateLevel();
@@ -119,16 +141,50 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  /// Leaderboard verilerini yükle
+  /// Firestore'da yeni kullanıcı dokümanı oluştur
+  Future<void> _createFirestoreUser() async {
+    await _userDoc(userId).set({
+      'user_id': userId,
+      'total_conversations': _progress?.totalConversations ?? 0,
+      'total_time_minutes': _progress?.totalTimeMinutes ?? 0,
+      'used_time_minutes': _progress?.usedTimeMinutes ?? 0,
+      'weekly_xp': 0,
+      'current_level': _progress?.currentLevel ?? 'beginner',
+      'completed_scenarios': _progress?.completedScenarios ?? [],
+      'display_name': _authUser?.displayName ?? 'User',
+      'last_active': FieldValue.serverTimestamp(),
+      'created_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Leaderboard verilerini Firestore'dan yükle
   Future<void> loadLeaderboard() async {
     _isLeaderboardLoading = true;
     notifyListeners();
 
     try {
-      _leaderboard = await _apiService.getLeaderboard();
+      final snapshot = await _firestore
+          .collection('users')
+          .orderBy('weekly_xp', descending: true)
+          .limit(50)
+          .get();
+
+      _leaderboard = [];
+      for (int i = 0; i < snapshot.docs.length; i++) {
+        final data = snapshot.docs[i].data();
+        final entry = LeaderboardEntry(
+          rank: i + 1,
+          userId: snapshot.docs[i].id,
+          displayName: data['display_name'] ?? 'User',
+          weeklyXp: data['weekly_xp'] ?? 0,
+          avatarUrl: data['avatar_url'],
+        );
+        _leaderboard.add(entry);
+      }
 
       // Kullanıcının güncel sırasını bul
-      final myEntry = _leaderboard.where((e) => e.userId == userId).firstOrNull;
+      final myEntry =
+          _leaderboard.where((e) => e.userId == userId).firstOrNull;
       if (myEntry != null) {
         _currentRank = myEntry.rank;
       }
@@ -242,30 +298,29 @@ class UserProvider with ChangeNotifier {
     _updateLevel();
     await prefs.setString('current_level', _progress!.currentLevel);
 
-    // Backend Sync
+    // Firestore Sync
     try {
-      // Her dakika 10 XP olsun (basit bir mantık)
+      // Her dakika 10 XP olsun
       final xpEarned = addedMinutes * 10;
 
-      await _apiService.updateUserProgress(
-        userId: userId,
-        totalMinutes: _progress!.totalTimeMinutes,
-        totalConversations: _progress!.totalConversations,
-        completedScenario: completedScenario,
-        addedXp: xpEarned,
-        displayName: _authUser?.displayName,
-      );
-
-      // Güncel rank'i almak için leaderboard'u yenileyebiliriz
-      // loadLeaderboard(); // Belki çok sık çağrılmamalı
+      await _userDoc(userId).set({
+        'total_conversations': _progress!.totalConversations,
+        'total_time_minutes': _progress!.totalTimeMinutes,
+        'used_time_minutes': _progress!.usedTimeMinutes,
+        'completed_scenarios': newCompletedScenarios,
+        'current_level': _progress!.currentLevel,
+        'weekly_xp': FieldValue.increment(xpEarned),
+        'display_name': _authUser?.displayName ?? 'User',
+        'last_active': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } catch (e) {
-      debugPrint('Failed to sync progress to backend: $e');
+      debugPrint('Failed to sync progress to Firestore: $e');
     }
 
     notifyListeners();
   }
 
-  /// Kullanıcı adını backend'e kaydet ve leaderboard'u güncelle
+  /// Kullanıcı adını Firestore'a kaydet ve leaderboard'u güncelle
   Future<void> updateDisplayName(String displayName) async {
     if (_authUser == null) {
       debugPrint('Update aborted: User not authenticated.');
@@ -274,22 +329,19 @@ class UserProvider with ChangeNotifier {
 
     try {
       final uid = _authUser!.uid;
-      debugPrint('Syncing display name to backend for $uid: $displayName');
+      debugPrint('Syncing display name to Firestore for $uid: $displayName');
 
-      await _apiService.updateUserProgress(
-        userId: uid,
-        displayName: displayName,
-      );
-
-      // Backend dosya yazma işleminin bitmesi için kısa bir süre bekle
-      await Future.delayed(const Duration(milliseconds: 500));
+      await _userDoc(uid).set({
+        'display_name': displayName,
+        'last_active': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       // İsim güncellendiği için leaderboard'u da yenile
       debugPrint('Refreshing leaderboard after name update...');
       await loadLeaderboard();
       debugPrint('Leaderboard refreshed.');
     } catch (e) {
-      debugPrint('Failed to sync display name to backend: $e');
+      debugPrint('Failed to sync display name to Firestore: $e');
     }
   }
 
@@ -358,6 +410,21 @@ class UserProvider with ChangeNotifier {
       completedScenarios: [],
     );
 
+    // Firestore'daki veriyi de sıfırla
+    try {
+      await _userDoc(userId).set({
+        'total_conversations': 0,
+        'total_time_minutes': 0,
+        'used_time_minutes': 0,
+        'weekly_xp': 0,
+        'current_level': 'beginner',
+        'completed_scenarios': [],
+        'last_active': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Failed to reset Firestore data: $e');
+    }
+
     notifyListeners();
   }
 
@@ -390,19 +457,19 @@ class UserProvider with ChangeNotifier {
   String _getDayName(int weekday) {
     switch (weekday) {
       case 1:
-        return 'Pzt';
+        return 'Mon';
       case 2:
-        return 'Sal';
+        return 'Tue';
       case 3:
-        return 'Çar';
+        return 'Wed';
       case 4:
-        return 'Per';
+        return 'Thu';
       case 5:
-        return 'Cum';
+        return 'Fri';
       case 6:
-        return 'Cmt';
+        return 'Sat';
       case 7:
-        return 'Paz';
+        return 'Sun';
       default:
         return '';
     }

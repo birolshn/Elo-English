@@ -3,6 +3,8 @@ import 'home_screen.dart';
 import 'account_screen.dart';
 import 'leaderboard_screen.dart';
 
+import 'progress_screen.dart';
+
 class MainTabScreen extends StatefulWidget {
   const MainTabScreen({super.key});
 
@@ -16,6 +18,7 @@ class _MainTabScreenState extends State<MainTabScreen> {
   final List<Widget> _screens = const [
     HomeScreen(),
     LeaderboardScreen(),
+    ProgressScreen(),
     AccountScreen(),
   ];
 
@@ -58,17 +61,22 @@ class _MainTabScreenState extends State<MainTabScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home_rounded),
-              label: 'Ana Sayfa',
+              label: 'Home',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.leaderboard_outlined),
               activeIcon: Icon(Icons.leaderboard_rounded),
-              label: 'Sıralama',
+              label: 'Leaderboard',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart_outlined),
+              activeIcon: Icon(Icons.bar_chart_rounded),
+              label: 'Statistics',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person_rounded),
-              label: 'Hesap',
+              label: 'Account',
             ),
           ],
         ),

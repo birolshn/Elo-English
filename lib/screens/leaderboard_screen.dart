@@ -76,7 +76,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Haftalık Sıralama',
+                    'Weekly Rank',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -85,7 +85,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'En çok çalışanlar listesi',
+                    'Top learners list',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.white.withOpacity(0.9),
@@ -101,7 +101,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : leaderboard.isEmpty
-                      ? const Center(child: Text('Henüz sıralama verisi yok.'))
+                      ? const Center(child: Text('No leaderboard data yet.'))
                       : RefreshIndicator(
                         onRefresh: () => userProvider.loadLeaderboard(),
                         child: ListView.builder(
@@ -133,7 +133,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     bool isMe,
     User? currentUser,
   ) {
-    // Kullanıcı kendi girdisiyse, Firebase'deki güncel ismi kullan
+    // Use current name if it's the current user
     final displayName =
         isMe && currentUser?.displayName != null
             ? currentUser!.displayName!
@@ -200,7 +200,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   ),
         ),
         title: Text(
-          isMe ? '$displayName (Sen)' : displayName,
+          isMe ? '$displayName (You)' : displayName,
           style: TextStyle(
             fontWeight: isMe ? FontWeight.bold : FontWeight.w600,
             color: isMe ? Theme.of(context).primaryColor : Colors.black87,

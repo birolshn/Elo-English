@@ -92,7 +92,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                   ),
                   const Expanded(
                     child: Text(
-                      'Senaryolar',
+                      'Scenarios',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -123,7 +123,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                               ),
                               SizedBox(width: 4),
                               Text(
-                                'Sınırsız',
+                                'Unlimited',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -187,11 +187,11 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                               color: Colors.red,
                             ),
                             const SizedBox(height: 16),
-                            Text('Hata: $_error'),
+                            Text('Error: $_error'),
                             const SizedBox(height: 16),
                             ElevatedButton(
                               onPressed: _loadScenarios,
-                              child: const Text('Tekrar Dene'),
+                              child: const Text('Try Again'),
                             ),
                           ],
                         ),
@@ -214,6 +214,11 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
   void _handleScenarioTap(BuildContext context, Scenario scenario) {
     final userProvider = context.read<UserProvider>();
     final premiumProvider = context.read<PremiumProvider>();
+
+    if (scenario.id == 'general' && !premiumProvider.isPremium) {
+      showPremiumPopup(context);
+      return;
+    }
 
     // Günlük limit kontrolü
     if (!userProvider.canStartScenario(premiumProvider.isPremium)) {
@@ -250,10 +255,10 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('⏰', style: TextStyle(fontSize: 56)),
+                  const Icon(Icons.alarm_rounded, size: 56, color: Colors.orange),
                   const SizedBox(height: 16),
                   const Text(
-                    'Günlük Limit Doldu!',
+                    'Daily Limit Reached!',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -262,7 +267,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Ücretsiz hesaplarda günde 2 senaryo hakkınız bulunmaktadır.\n\nYarın tekrar deneyebilir veya premium üyelik ile sınırsız pratik yapabilirsiniz.',
+                    'Free accounts have a limit of 2 scenarios per day.\n\nYou can try again tomorrow or upgrade to premium for unlimited practice.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   ),
@@ -272,7 +277,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pop();
-                        showPremiumPopup(context);
+                        showPremiumPopup(context, triggerContext: 'daily_limit');
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF9333EA),
@@ -285,9 +290,9 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('👑 ', style: TextStyle(fontSize: 16)),
+                          Icon(Icons.workspace_premium_rounded, size: 18, color: Colors.white),
                           Text(
-                            'Premium\'a Yükselt',
+                            'Upgrade to Premium',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -298,7 +303,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(
-                      'Tamam',
+                      'OK',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 14,
@@ -333,9 +338,10 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                       color: scenario.difficultyColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      scenario.difficultyEmoji,
-                      style: const TextStyle(fontSize: 28),
+                    child: Icon(
+                      scenario.semanticIcon,
+                      color: scenario.difficultyColor,
+                      size: 28,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -371,6 +377,33 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                                 ),
                               ),
                             ),
+                            if (scenario.id == 'general') ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.star, color: Colors.white, size: 10),
+                                    SizedBox(width: 2),
+                                    Text(
+                                      'PREMIUM',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             const SizedBox(width: 8),
                             Icon(
                               Icons.access_time,
@@ -379,7 +412,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '~${scenario.estimatedTime} dk',
+                              '~${scenario.estimatedTime > 0 ? scenario.estimatedTime : '∞'} min',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade600,
@@ -417,7 +450,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'Başla',
+                        'Start',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

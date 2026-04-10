@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.elo</string>
+	<string>com.birolsahin.eloenglish</string>
 	<key>PROJECT_ID</key>
 	<string>elo-ai-5e657</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:679968101906:ios:28e382dc63efc9acb2aacb</string>
+	<string>1:679968101906:ios:8d725babf675917bb2aacb</string>
 </dict>
 </plist>

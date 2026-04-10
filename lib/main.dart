@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'firebase_options.dart';
 import 'screens/main_tab_screen.dart';
 import 'screens/home_screen.dart';
@@ -22,11 +24,24 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // RevenueCat'i başlat
+  await initializeRevenueCat();
+
   // Bildirimleri başlat
   final notificationService = NotificationService();
   await notificationService.initialize();
 
   runApp(const MyApp());
+}
+
+Future<void> initializeRevenueCat() async {
+  // Sadece iOS için (App Store'da yayınlanacak)
+  if (Platform.isIOS) {
+    final configuration = PurchasesConfiguration(
+      'appl_WYcKwTZCJwqCoeAHmjHTayNWbqw',
+    );
+    await Purchases.configure(configuration);
+  }
 }
 
 class AppTheme {
@@ -192,12 +207,9 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  bool _notificationsSetup = false;
+  // No longer using fixed flag to allow updates on status change
 
   void _setupNotifications(bool isPremium) async {
-    if (_notificationsSetup) return;
-    _notificationsSetup = true;
-
     final notificationService = NotificationService();
     await notificationService.setupNotifications(isPremium: isPremium);
   }

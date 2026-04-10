@@ -60,7 +60,10 @@ app.add_middleware(
 @app.get("/privacy", response_class=HTMLResponse)
 async def get_privacy_policy():
     try:
-        with open("privacy_policy.html", "r", encoding="utf-8") as f:
+        # Use absolute path relative to this script's location
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(base_dir, "privacy_policy.html")
+        with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return "<h1>Privacy Policy</h1><p>Not found.</p>"

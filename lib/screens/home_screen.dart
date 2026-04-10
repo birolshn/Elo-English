@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../providers/premium_provider.dart';
+import '../widgets/premium_popup.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -76,18 +79,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
+                            children: [
                               Text(
-                                'Merhaba! 👋',
-                                style: TextStyle(
+                                FirebaseAuth.instance.currentUser?.displayName?.split(' ').first != null && FirebaseAuth.instance.currentUser!.displayName!.isNotEmpty
+                                    ? 'Welcome, ${FirebaseAuth.instance.currentUser!.displayName!.split(' ').first}'
+                                    : 'Welcome',
+                                style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Bugün İngilizce pratiğine hazır mısın?',
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Keep reaching your learning goals.',
                                 style: TextStyle(
                                   fontSize: 15,
                                   color: Colors.white70,
@@ -127,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     // Section Title
                     const Text(
-                      'Ne yapmak istersin?',
+                      'What would you like to do?',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -141,41 +146,35 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildMainActionCard(
                       context,
                       icon: Icons.chat_bubble_rounded,
-                      title: 'Konuşma Başlat',
-                      subtitle: 'AI öğretmeninizle gerçekçi diyaloglar kurun',
+                      title: 'Start Conversation',
+                      subtitle: 'Practice realistic dialogues with your AI tutor',
                       color: const Color(0xFF0EA5E9),
                       onTap: () => Navigator.pushNamed(context, '/scenarios'),
                     ),
 
                     const SizedBox(height: 12),
 
-                    // Secondary Actions Row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSecondaryCard(
-                            context,
-                            icon: Icons.record_voice_over_rounded,
-                            title: 'IELTS Speaking',
-                            color: const Color(0xFF9333EA),
-                            onTap:
-                                () =>
-                                    Navigator.pushNamed(context, '/ielts-exam'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildSecondaryCard(
-                            context,
-                            icon: Icons.bar_chart_rounded,
-                            title: 'İstatistikler',
-                            color: const Color(0xFF10B981),
-                            onTap:
-                                () => Navigator.pushNamed(context, '/progress'),
-                          ),
-                        ),
-                      ],
+                    // IELTS Mock Test Action
+                    _buildMainActionCard(
+                      context,
+                      icon: Icons.record_voice_over_rounded,
+                      title: 'IELTS Speaking Simulator',
+                      subtitle: 'Part 1, 2 & 3 mock tests with AI examiner',
+                      color: const Color(0xFF9333EA),
+                      isPremium: true,
+                      onTap: () {
+                        final isPremium =
+                            context.read<PremiumProvider>().isPremium;
+                        if (isPremium) {
+                          Navigator.pushNamed(context, '/ielts-exam');
+                        } else {
+                          showPremiumPopup(context, triggerContext: 'ielts');
+                        }
+                      },
                     ),
+
+                    // Space at bottom
+                    const SizedBox(height: 16),
 
                     const SizedBox(height: 32),
 
@@ -195,18 +194,18 @@ class _HomeScreenState extends State<HomeScreen> {
     final userProvider = context.watch<UserProvider>();
     final progress = userProvider.progress;
 
-    String levelDisplay = 'Başlangıç';
+    String levelDisplay = 'Beginner';
     Color levelColor = const Color(0xFF10B981);
 
     if (progress != null) {
       switch (progress.currentLevel.toLowerCase()) {
         case 'intermediate':
           levelColor = const Color(0xFFF59E0B);
-          levelDisplay = 'Orta';
+          levelDisplay = 'Intermediate';
           break;
         case 'advanced':
           levelColor = const Color(0xFFEF4444);
-          levelDisplay = 'İleri';
+          levelDisplay = 'Advanced';
           break;
       }
     }
@@ -236,7 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(width: 8),
               const Text(
-                'Bugünkü İlerleme',
+                'Today\'s Progress',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -271,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _buildStatItem(
                   icon: Icons.access_time_rounded,
                   value: '${userProvider.todayUsedMinutes}',
-                  label: 'dakika',
+                  label: 'minutes',
                   color: const Color(0xFF3B82F6),
                 ),
               ),
@@ -280,7 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _buildStatItem(
                   icon: Icons.forum_rounded,
                   value: '${userProvider.todayConversations}',
-                  label: 'konuşma',
+                  label: 'conversations',
                   color: const Color(0xFF8B5CF6),
                 ),
               ),
@@ -289,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _buildStatItem(
                   icon: Icons.check_circle_rounded,
                   value: '${userProvider.todayCompletedScenarios.length}',
-                  label: 'senaryo',
+                  label: 'scenarios',
                   color: const Color(0xFF10B981),
                 ),
               ),
@@ -333,6 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required String subtitle,
     required Color color,
+    bool isPremium = false,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -369,13 +369,48 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      if (isPremium) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.star_rounded,
+                                  color: Colors.white, size: 12),
+                              SizedBox(width: 2),
+                              Text(
+                                'PREMIUM',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -447,6 +482,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildTipCard(BuildContext context) {
+    final tips = [
+      'Practice at least 10 minutes every day to build a strong habit!',
+      'Don\'t be afraid of making mistakes; they are proof that you are trying.',
+      'Record your voice and listen to it later to improve your pronunciation.',
+      'Learning 5 new words a day equals 1825 words a year!',
+      'Try to think in English instead of translating from your native language.',
+      'Watch your favorite movies or shows with English subtitles.',
+      'Speak clearly and confidently; fluency comes with practice.'
+    ];
+    final currentDayIndex = DateTime.now().weekday - 1; // 1-7 to 0-6
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -462,25 +508,25 @@ class _HomeScreenState extends State<HomeScreen> {
               color: const Color(0xFFFCD34D).withOpacity(0.5),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Text('💡', style: TextStyle(fontSize: 20)),
+            child: const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFD97706), size: 22),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Günün İpucu',
+                const Text(
+                  'Tip of the Day',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF92400E),
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'Her gün 10 dakika pratik, tutarlılıkla büyük fark yaratır!',
-                  style: TextStyle(fontSize: 13, color: Color(0xFFB45309)),
+                  tips[currentDayIndex],
+                  style: const TextStyle(fontSize: 13, color: Color(0xFFB45309)),
                 ),
               ],
             ),

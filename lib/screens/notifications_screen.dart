@@ -59,11 +59,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final difference = now.difference(date);
 
     if (difference.inDays == 0) {
-      return 'Bugün ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return 'Today ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } else if (difference.inDays == 1) {
-      return 'Dün ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return 'Yesterday ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } else if (difference.inDays < 7) {
-      return '${difference.inDays} gün önce';
+      return '${difference.inDays} days ago';
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
@@ -111,7 +111,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                   const Expanded(
                     child: Text(
-                      'Bildirimler',
+                      'Notifications',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 24,
@@ -163,7 +163,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'Henüz bildirim yok',
+              'No notifications yet',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -172,7 +172,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Her gün saat 19:00\'da motivasyon\nbildirimleri alacaksınız',
+              'You will receive motivation\nnotifications every day at 19:00',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),

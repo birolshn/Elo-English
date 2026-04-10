@@ -43,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } else if (!success && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Giriş başarısız'),
+          content: Text(authProvider.errorMessage ?? 'Login failed'),
           backgroundColor: Colors.red.shade600,
         ),
       );
@@ -64,16 +64,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   size: 28,
                 ),
                 SizedBox(width: 12),
-                Text('E-posta Doğrulanmadı'),
+                Text('Email Not Verified'),
               ],
             ),
             content: const Text(
-              'Giriş yapabilmek için e-posta adresinizi doğrulamanız gerekiyor.\n\nKayıt sırasında size gönderilen doğrulama linkine tıklayın.',
+              'You need to verify your email address to log in.\n\nPlease click the verification link sent during registration.',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Tamam'),
+                child: const Text('OK'),
               ),
               TextButton(
                 onPressed: () async {
@@ -89,13 +89,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Doğrulama e-postası tekrar gönderildi!'),
+                        content: Text('Verification email sent again!'),
                         backgroundColor: Colors.green,
                       ),
                     );
                   }
                 },
-                child: const Text('Tekrar Gönder'),
+                child: const Text('Resend'),
               ),
             ],
           ),
@@ -154,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      'Hoşgeldiniz',
+                      'Welcome',
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -163,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'İngilizce öğrenmeye devam edin',
+                      'Continue your English learning journey',
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.white.withOpacity(0.9),
@@ -188,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
-                          labelText: 'E-posta',
+                          labelText: 'Email',
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -198,10 +198,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'E-posta giriniz';
+                            return 'Enter your email';
                           }
                           if (!value.contains('@')) {
-                            return 'Geçerli bir e-posta giriniz';
+                            return 'Enter a valid email';
                           }
                           return null;
                         },
@@ -214,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          labelText: 'Şifre',
+                          labelText: 'Password',
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -236,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Şifre giriniz';
+                            return 'Enter your password';
                           }
                           return null;
                         },
@@ -252,7 +252,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             _showForgotPasswordDialog();
                           },
                           child: Text(
-                            'Şifremi unuttum',
+                            'Forgot password?',
                             style: TextStyle(color: primaryColor),
                           ),
                         ),
@@ -286,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   )
                                   : const Text(
-                                    'Giriş Yap',
+                                    'Log In',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
@@ -302,7 +302,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Hesabınız yok mu? ',
+                            'Don\'t have an account? ',
                             style: TextStyle(color: Colors.grey.shade600),
                           ),
                           TextButton(
@@ -310,7 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Navigator.pushNamed(context, '/register');
                             },
                             child: Text(
-                              'Kayıt Ol',
+                              'Sign Up',
                               style: TextStyle(
                                 color: primaryColor,
                                 fontWeight: FontWeight.w600,
@@ -337,19 +337,19 @@ class _LoginScreenState extends State<LoginScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Şifre Sıfırla'),
+            title: const Text('Reset Password'),
             content: TextField(
               controller: emailController,
               decoration: const InputDecoration(
-                labelText: 'E-posta adresiniz',
-                hintText: 'ornek@email.com',
+                labelText: 'Your email address',
+                hintText: 'example@email.com',
               ),
               keyboardType: TextInputType.emailAddress,
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('İptal'),
+                child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () async {
@@ -363,8 +363,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         SnackBar(
                           content: Text(
                             success
-                                ? 'Şifre sıfırlama e-postası gönderildi'
-                                : 'E-posta gönderilemedi',
+                                ? 'Password reset email sent'
+                                : 'Failed to send email',
                           ),
                           backgroundColor:
                               success ? Colors.green : Colors.red.shade600,
@@ -373,7 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     }
                   }
                 },
-                child: const Text('Gönder'),
+                child: const Text('Send'),
               ),
             ],
           ),

@@ -18,7 +18,8 @@ class ConversationScreen extends StatefulWidget {
   State<ConversationScreen> createState() => _ConversationScreenState();
 }
 
-class _ConversationScreenState extends State<ConversationScreen> {
+class _ConversationScreenState extends State<ConversationScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -31,6 +32,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
   bool _isRecorderReady = false;
   String? _recordedFilePath;
   bool _hasShownTimeUpDialog = false;
+  bool _isKeyboardMode = false;
+
+  // Pulsating animation for mic button
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   // Store reference to provider for use in dispose()
   ConversationProvider? _conversationProvider;
@@ -38,6 +44,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.4).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
     _initSpeech();
     _initTts();
     _initRecorder();
@@ -51,7 +64,32 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Future<void> _initSpeech() async {
-    _speechEnabled = await _speech.initialize();
+    try {
+      _speechEnabled = await _speech.initialize(
+        onStatus: (status) {
+          debugPrint('🎤 Speech status: $status');
+          if (status == 'done' && mounted) {
+            _pulseController.stop();
+            _pulseController.reset();
+            setState(() => _isListening = false);
+          } else if (status == 'listening' && mounted) {
+            _pulseController.repeat(reverse: true);
+          }
+        },
+        onError: (error) {
+          debugPrint('❌ Speech error: $error');
+          if (mounted) {
+            _pulseController.stop();
+            _pulseController.reset();
+            setState(() => _isListening = false);
+          }
+        },
+      );
+      debugPrint('🎤 Speech initialized: $_speechEnabled');
+    } catch (e) {
+      debugPrint('❌ Speech init exception: $e');
+      _speechEnabled = false;
+    }
     if (mounted) setState(() {});
   }
 
@@ -85,22 +123,41 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Future<void> _startListening() async {
-    if (!_speechEnabled) return;
+    if (!_speechEnabled) {
+      debugPrint('❌ Speech not enabled, trying to reinitialize...');
+      await _initSpeech();
+      if (!_speechEnabled) return;
+    }
 
-    setState(() => _isListening = true);
-    await _speech.listen(
+    // Mevcut metni koru - tekrar basınca üstüne eklensin
+    final existingText = _messageController.text.trim();
+
+    // Önce dinlemeyi başlat (await yok - gecikmeyi önler)
+    _speech.listen(
       onResult: (result) {
+        debugPrint('🎤 Recognized: ${result.recognizedWords}');
         setState(() {
-          _messageController.text = result.recognizedWords;
+          if (existingText.isNotEmpty) {
+            _messageController.text = '$existingText ${result.recognizedWords}';
+          } else {
+            _messageController.text = result.recognizedWords;
+          }
         });
       },
-      // Don't specify localeId - use device's default language
-      // This allows Turkish names to be recognized correctly
+      localeId: 'en_US',
+      listenFor: const Duration(seconds: 60),
+      pauseFor: const Duration(seconds: 10),
+      listenMode: stt.ListenMode.dictation,
     );
+
+    // Sonra UI'yı güncelle
+    setState(() => _isListening = true);
   }
 
   Future<void> _stopListening() async {
     await _speech.stop();
+    _pulseController.stop();
+    _pulseController.reset();
     setState(() => _isListening = false);
   }
 
@@ -112,7 +169,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (_messageController.text.trim().isEmpty) return;
     final message = _messageController.text.trim();
     _messageController.clear();
-    await context.read<ConversationProvider>().sendMessage(message);
+    final provider = context.read<ConversationProvider>();
+    await provider.sendMessage(message);
+    // Otomatik sesli okuma - AI cevabını hemen oku
+    final messages = provider.messages;
+    if (messages.isNotEmpty && messages.last.role == 'assistant') {
+      _speak(messages.last.content);
+    }
     _scrollToBottom();
   }
 
@@ -141,7 +204,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           );
         }
         conversationProvider.clearConversation();
-        Navigator.of(context).pushReplacementNamed('/scenarios');
+        Navigator.of(context).pop();
       },
     );
   }
@@ -152,6 +215,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _scrollController.dispose();
     _speech.stop();
     _flutterTts.stop();
+    _pulseController.dispose();
     if (_isRecorderReady) {
       _recorder.closeRecorder();
     }
@@ -175,8 +239,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
     if (scenario == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Konuşma')),
-        body: const Center(child: Text('Senaryo seçilmedi')),
+        appBar: AppBar(title: const Text('Conversation')),
+        body: const Center(child: Text('Scenario not selected')),
       );
     }
 
@@ -278,14 +342,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
                         context: context,
                         builder:
                             (context) => AlertDialog(
-                              title: const Text('Konuşmayı Sıfırla?'),
+                              title: const Text('Reset Conversation?'),
                               content: const Text(
-                                'Tüm konuşma geçmişi silinecek.',
+                                'All conversation history will be deleted.',
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(context),
-                                  child: const Text('İptal'),
+                                  child: const Text('Cancel'),
                                 ),
                                 TextButton(
                                   onPressed: () {
@@ -296,7 +360,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                     );
                                     Navigator.pop(context);
                                   },
-                                  child: const Text('Sıfırla'),
+                                  child: const Text('Reset'),
                                 ),
                               ],
                             ),
@@ -346,8 +410,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
             children: [
               if (!isUser) ...[
                 CircleAvatar(
-                  backgroundColor: Colors.blue.shade100,
-                  child: const Icon(Icons.smart_toy, color: Colors.blue),
+                  backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(25),
+                  child: Icon(Icons.record_voice_over, color: Theme.of(context).colorScheme.primary, size: 20),
                 ),
                 const SizedBox(width: 8),
               ],
@@ -417,7 +481,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
               Icon(Icons.lightbulb_outline, size: 16, color: Colors.orange),
               SizedBox(width: 4),
               Text(
-                'Geri Bildirim',
+                'Feedback',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ],
@@ -429,7 +493,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           if (message.grammarCorrections?.isNotEmpty ?? false) ...[
             const SizedBox(height: 8),
             const Text(
-              '📝 Gramer:',
+              'Grammar Suggestions:',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
             ),
             ...message.grammarCorrections!.map(
@@ -439,7 +503,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           if (message.vocabularySuggestions?.isNotEmpty ?? false) ...[
             const SizedBox(height: 8),
             const Text(
-              '📚 Kelime önerileri:',
+              'Vocabulary Suggestions:',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
             ),
             ...message.vocabularySuggestions!.map(
@@ -453,84 +517,123 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Widget _buildInputArea() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       decoration: BoxDecoration(
         color: Colors.white,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(32),
+          topRight: Radius.circular(32),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.shade300,
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, -2),
+            offset: const Offset(0, -5),
           ),
         ],
       ),
       child: SafeArea(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            IconButton(
-              icon: Icon(
-                _isListening ? Icons.mic : Icons.mic_none,
-                color:
-                    _isListening
-                        ? Colors.red
-                        : (_speechEnabled
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.grey.shade400),
-              ),
-              onPressed: () {
-                if (!_speechEnabled) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Mikrofon izni verilmedi veya cihaz desteklemiyor.',
-                      ),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                  return;
-                }
+        child: _isKeyboardMode ? _buildKeyboardInput() : _buildMicInput(),
+      ),
+    );
+  }
+
+  Widget _buildMicInput() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Mode Toggle Button (Corner)
+        PositionImage(
+          alignment: Alignment.centerLeft,
+          child: IconButton(
+            icon: const Icon(Icons.keyboard_outlined, size: 28),
+            onPressed: () => setState(() => _isKeyboardMode = true),
+            color: Colors.grey.shade600,
+          ),
+        ),
+        // Large Centered Mic
+        AnimatedBuilder(
+          animation: _pulseAnimation,
+          builder: (context, child) {
+            return GestureDetector(
+              onTap: () {
+                if (!_speechEnabled) return;
                 if (_isListening) {
                   _stopListening();
                 } else {
                   _startListening();
                 }
               },
-            ),
-            Expanded(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 150),
-                child: TextField(
-                  controller: _messageController,
-                  maxLines: null,
-                  minLines: 1,
-                  keyboardType: TextInputType.multiline,
-                  textInputAction: TextInputAction.newline,
-                  decoration: InputDecoration(
-                    hintText: 'Mesajınızı yazın...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide.none,
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _isListening ? Colors.red : Theme.of(context).primaryColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (_isListening ? Colors.red : Theme.of(context).primaryColor)
+                          .withOpacity(0.3),
+                      blurRadius: 15 * _pulseAnimation.value,
+                      spreadRadius: 5 * (_pulseAnimation.value - 1),
                     ),
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                  ),
+                  ],
+                ),
+                child: Icon(
+                  _isListening ? Icons.mic : Icons.mic_none,
+                  color: Colors.white,
+                  size: 40,
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.send),
-              color: Theme.of(context).colorScheme.primary,
-              onPressed: _sendMessage,
-            ),
-          ],
+            );
+          },
         ),
-      ),
+      ],
     );
+  }
+
+  Widget _buildKeyboardInput() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.mic_none),
+          onPressed: () => setState(() => _isKeyboardMode = false),
+          color: Colors.grey.shade600,
+        ),
+        Expanded(
+          child: TextField(
+            controller: _messageController,
+            maxLines: null,
+            decoration: InputDecoration(
+              hintText: 'Type your message...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Colors.grey.shade100,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.send),
+          color: Theme.of(context).primaryColor,
+          onPressed: _sendMessage,
+        ),
+      ],
+    );
+  }
+}
+
+class PositionImage extends StatelessWidget {
+  final Widget child;
+  final Alignment alignment;
+  const PositionImage({super.key, required this.child, required this.alignment});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(alignment: alignment, child: child);
   }
 }

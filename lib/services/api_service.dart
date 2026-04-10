@@ -1,13 +1,26 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
 
 class ApiService {
-  // Backend URL'inizi buraya yazın
-  static const String baseUrl = 'http://localhost:8000';
-  // iOS Simulator için localhost çalışır
-  // Gerçek iOS cihaz için: 'http://YOUR_IP:8000'
-  // Android Emulator için: 'http://10.0.2.2:8000'
+  // Production URL - Render.com backend (Gemini AI only, stateless)
+  static const String _productionUrl = 'https://elo-english-api.onrender.com';
+
+  static String get baseUrl {
+    // Release modda production URL kullan
+    const isRelease = bool.fromEnvironment('dart.vm.product');
+    if (isRelease) {
+      return _productionUrl;
+    }
+
+    // Development modda localhost kullan
+    if (Platform.isAndroid) {
+      return 'http://10.0.2.2:8000'; // Android Emulator
+    } else {
+      return 'http://localhost:8000'; // iOS Simulator / Desktop
+    }
+  }
 
   Future<List<Scenario>> getScenarios() async {
     try {
@@ -49,70 +62,6 @@ class ApiService {
         return json.decode(response.body);
       } else {
         throw Exception('Failed to send message: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Network error: $e');
-    }
-  }
-
-  Future<UserProgress> getUserProgress(String userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/user/progress/$userId'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        return UserProgress.fromJson(json.decode(response.body));
-      } else {
-        throw Exception('Failed to load progress: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Network error: $e');
-    }
-  }
-
-  Future<void> updateUserProgress({
-    required String userId,
-    int? totalMinutes,
-    int? totalConversations,
-    String? completedScenario,
-    int? addedXp,
-    String? displayName,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/user/progress/$userId'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'total_minutes': totalMinutes,
-          'total_conversations': totalConversations,
-          'completed_scenario': completedScenario,
-          'added_xp': addedXp,
-          'display_name': displayName,
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to update progress: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Network error: $e');
-    }
-  }
-
-  Future<List<LeaderboardEntry>> getLeaderboard() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/leaderboard'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => LeaderboardEntry.fromJson(json)).toList();
-      } else {
-        throw Exception('Failed to load leaderboard: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Network error: $e');

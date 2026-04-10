@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/premium_provider.dart';
 import '../providers/user_provider.dart';
+import 'privacy_policy_screen.dart';
 import '../services/api_service.dart';
 import '../widgets/premium_popup.dart';
 
@@ -68,7 +69,7 @@ class AccountScreen extends StatelessWidget {
                             size: 20,
                           ),
                         ),
-                        tooltip: 'Profili Düzenle',
+                        tooltip: 'Edit Profile',
                       ),
                     ),
                     Column(
@@ -107,7 +108,7 @@ class AccountScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              user?.displayName ?? 'Kullanıcı',
+                              user?.displayName ?? 'User',
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -191,8 +192,8 @@ class AccountScreen extends StatelessWidget {
                               const SizedBox(width: 6),
                               Text(
                                 authProvider.isEmailVerified
-                                    ? 'E-posta Doğrulandı'
-                                    : 'E-posta Doğrulanmadı',
+                                    ? 'Email Verified'
+                                    : 'Email Not Verified',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.white,
@@ -216,17 +217,17 @@ class AccountScreen extends StatelessWidget {
                     // Account info card
                     _buildInfoCard(
                       context,
-                      title: 'Hesap Bilgileri',
+                      title: 'Account Information',
                       children: [
                         _buildInfoRow(
                           icon: Icons.person_outline,
-                          label: 'Ad Soyad',
-                          value: user?.displayName ?? 'Belirtilmemiş',
+                          label: 'Full Name',
+                          value: user?.displayName ?? 'Not specified',
                         ),
                         const Divider(height: 24),
                         _buildInfoRow(
                           icon: Icons.leaderboard_outlined,
-                          label: 'Haftalık Sıralama',
+                          label: 'Weekly Rank',
                           value:
                               context.watch<UserProvider>().currentRank != null
                                   ? '#${context.watch<UserProvider>().currentRank}'
@@ -235,36 +236,83 @@ class AccountScreen extends StatelessWidget {
                         const Divider(height: 24),
                         _buildInfoRow(
                           icon: Icons.email_outlined,
-                          label: 'E-posta',
-                          value: user?.email ?? 'Belirtilmemiş',
+                          label: 'Email',
+                          value: user?.email ?? 'Not specified',
                         ),
                         const Divider(height: 24),
                         _buildInfoRow(
                           icon: Icons.calendar_today_outlined,
-                          label: 'Kayıt Tarihi',
+                          label: 'Registration Date',
                           value:
                               user?.metadata.creationTime != null
                                   ? _formatDate(user!.metadata.creationTime!)
-                                  : 'Bilinmiyor',
+                                  : 'Unknown',
                         ),
                       ],
                     ),
 
                     const SizedBox(height: 20),
 
+
+
                     // Premium Membership Card
                     _buildPremiumCard(context),
+
+                    const SizedBox(height: 20),
+
+                    // Privacy Policy Button
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.privacy_tip_outlined,
+                          color: Color(0xFF64748B),
+                        ),
+                        title: const Text(
+                          'Privacy Policy',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Color(0xFF1E293B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: Color(0xFFCBD5E1),
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PrivacyPolicyScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
 
                     const SizedBox(height: 20),
 
                     // Danger zone
                     _buildInfoCard(
                       context,
-                      title: 'Tehlikeli Bölge',
+                      title: 'Danger Zone',
                       titleColor: Colors.red,
                       children: [
                         const Text(
-                          'Hesabınızı sildiğinizde tüm verileriniz kalıcı olarak silinecektir. Bu işlem geri alınamaz.',
+                          'When you delete your account, all your data will be permanently deleted. This action cannot be undone.',
                           style: TextStyle(
                             fontSize: 13,
                             color: Color(0xFF64748B),
@@ -276,7 +324,7 @@ class AccountScreen extends StatelessWidget {
                           child: OutlinedButton.icon(
                             onPressed: () => _showDeleteAccountDialog(context),
                             icon: const Icon(Icons.delete_forever, size: 20),
-                            label: const Text('Hesabımı Sil'),
+                            label: const Text('Delete My Account'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.red,
                               side: const BorderSide(color: Colors.red),
@@ -295,7 +343,7 @@ class AccountScreen extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: () => _showLogoutDialog(context),
                         icon: const Icon(Icons.logout_rounded, size: 20),
-                        label: const Text('Çıkış Yap'),
+                        label: const Text('Log Out'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           foregroundColor: Colors.white,
@@ -359,7 +407,7 @@ class AccountScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Premium Üyelik',
+                      'Premium Membership',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -370,8 +418,8 @@ class AccountScreen extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       isPremium
-                          ? 'Aktif - Sınırsız pratik hakkınız var'
-                          : 'Sınırsız pratik için premium\'a geçin',
+                          ? 'Active - Unlimited practice available'
+                          : 'Upgrade to premium for unlimited practice',
                       style: TextStyle(
                         fontSize: 13,
                         color:
@@ -383,27 +431,25 @@ class AccountScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color:
-                      isPremium
-                          ? Colors.white.withOpacity(0.2)
-                          : const Color(0xFF10B981).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  isPremium ? 'Aktif' : 'Ücretsiz',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isPremium ? Colors.white : const Color(0xFF10B981),
+              if (isPremium)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Active',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           if (!isPremium) ...[
@@ -421,7 +467,7 @@ class AccountScreen extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Premium\'a Yükselt',
+                  'Upgrade to Premium',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -442,7 +488,7 @@ class AccountScreen extends StatelessWidget {
                   side: BorderSide(color: Colors.white.withOpacity(0.5)),
                 ),
                 child: const Text(
-                  'Üyeliği İptal Et',
+                  'Cancel Subscription',
                   style: TextStyle(fontWeight: FontWeight.w500),
                 ),
               ),
@@ -462,39 +508,18 @@ class AccountScreen extends StatelessWidget {
               children: [
                 Icon(Icons.warning_rounded, color: Colors.orange, size: 28),
                 SizedBox(width: 12),
-                Text('Üyeliği İptal Et'),
+                Text('Cancel Subscription'),
               ],
             ),
             content: const Text(
-              'Premium üyeliğinizi iptal etmek istediğinize emin misiniz?\n\n'
-              '• Sınırsız pratik hakkınız sona erecek\n'
-              '• Mevcut dönem sonuna kadar kullanmaya devam edebilirsiniz',
+              'To cancel your premium subscription, manage your subscriptions in the iOS Settings app.\n\n'
+              'You can cancel by navigating to Settings → Apple ID → Subscriptions.\n\n'
+              '• You can continue using your premium benefits until the end of the current period',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Vazgeç'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await context.read<PremiumProvider>().cancelPremium();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Premium üyeliğiniz iptal edildi.'),
-                        backgroundColor: Color(0xFF64748B),
-                      ),
-                    );
-                  }
-                },
-                child: const Text(
-                  'İptal Et',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: const Text('OK'),
               ),
             ],
           ),
@@ -574,18 +599,18 @@ class AccountScreen extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     final months = [
-      'Ocak',
-      'Şubat',
-      'Mart',
-      'Nisan',
-      'Mayıs',
-      'Haziran',
-      'Temmuz',
-      'Ağustos',
-      'Eylül',
-      'Ekim',
-      'Kasım',
-      'Aralık',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
@@ -595,14 +620,12 @@ class AccountScreen extends StatelessWidget {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Çıkış Yap'),
-            content: const Text(
-              'Hesabınızdan çıkış yapmak istediğinize emin misiniz?',
-            ),
+            title: const Text('Log Out'),
+            content: const Text('Are you sure you want to log out?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('İptal'),
+                child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () {
@@ -610,7 +633,7 @@ class AccountScreen extends StatelessWidget {
                   context.read<AuthProvider>().signOut();
                 },
                 child: const Text(
-                  'Çıkış Yap',
+                  'Log Out',
                   style: TextStyle(color: Colors.red),
                 ),
               ),
@@ -628,16 +651,16 @@ class AccountScreen extends StatelessWidget {
               children: [
                 Icon(Icons.warning_rounded, color: Colors.red, size: 28),
                 SizedBox(width: 12),
-                Text('Hesabı Sil'),
+                Text('Delete Account'),
               ],
             ),
             content: const Text(
-              'Hesabınız kalıcı olarak silinecek.\n\nBu işlem geri alınamaz. Tüm verileriniz silinecektir.\n\nDevam etmek istiyor musunuz?',
+              'Your account will be permanently deleted.\n\nThis action cannot be undone. All your data will be cleared.\n\nDo you want to continue?',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Vazgeç'),
+                child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () async {
@@ -649,7 +672,7 @@ class AccountScreen extends StatelessWidget {
                       SnackBar(
                         content: Text(
                           authProvider.errorMessage ??
-                              'Hesap silinirken hata oluştu. Tekrar giriş yapıp deneyin.',
+                              'Deleting your account will permanently remove all your data. This action cannot be undone.',
                         ),
                         backgroundColor: Colors.red.shade600,
                       ),
@@ -657,7 +680,7 @@ class AccountScreen extends StatelessWidget {
                   }
                 },
                 child: const Text(
-                  'Evet, Sil',
+                  'Yes, Delete',
                   style: TextStyle(
                     color: Colors.red,
                     fontWeight: FontWeight.bold,
@@ -679,7 +702,7 @@ class AccountScreen extends StatelessWidget {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Profili Düzenle'),
+            title: const Text('Edit Profile'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -696,7 +719,7 @@ class AccountScreen extends StatelessWidget {
                         // Show loading indicator
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Fotoğraf yükleniyor...'),
+                            content: Text('Uploading photo...'),
                             duration: Duration(seconds: 2),
                           ),
                         );
@@ -717,7 +740,7 @@ class AccountScreen extends StatelessWidget {
                             Navigator.pop(context); // Close dialog
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Profil fotoğrafı güncellendi!'),
+                                content: Text('Profile photo updated!'),
                                 backgroundColor: Colors.green,
                               ),
                             );
@@ -726,7 +749,8 @@ class AccountScreen extends StatelessWidget {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  authProvider.errorMessage ?? 'Hata oluştu',
+                                  authProvider.errorMessage ??
+                                      'An error occurred',
                                 ),
                                 backgroundColor: Colors.red,
                               ),
@@ -784,7 +808,7 @@ class AccountScreen extends StatelessWidget {
                 TextField(
                   controller: nameController,
                   decoration: const InputDecoration(
-                    labelText: 'Ad Soyad',
+                    labelText: 'Full Name',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                 ),
@@ -793,7 +817,7 @@ class AccountScreen extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('İptal'),
+                child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () async {
@@ -810,7 +834,7 @@ class AccountScreen extends StatelessWidget {
 
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Profil güncellendi'),
+                            content: Text('Profile updated'),
                             backgroundColor: Colors.green,
                           ),
                         );
@@ -818,7 +842,7 @@ class AccountScreen extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              authProvider.errorMessage ?? 'Hata oluştu',
+                              authProvider.errorMessage ?? 'An error occurred',
                             ),
                             backgroundColor: Colors.red,
                           ),

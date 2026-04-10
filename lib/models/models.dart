@@ -25,16 +25,35 @@ class Scenario {
     );
   }
 
-  String get difficultyEmoji {
+  IconData get difficultyIcon {
     switch (difficulty.toLowerCase()) {
       case 'beginner':
-        return '🌱';
+        return Icons.eco_rounded;
       case 'intermediate':
-        return '🌿';
+        return Icons.timeline_rounded;
       case 'advanced':
-        return '🌳';
+        return Icons.military_tech_rounded;
       default:
-        return '📚';
+        return Icons.menu_book_rounded;
+    }
+  }
+
+  IconData get semanticIcon {
+    switch (id.toLowerCase()) {
+      case 'restaurant':
+        return Icons.restaurant_menu_rounded;
+      case 'airport':
+        return Icons.flight_takeoff_rounded;
+      case 'shopping':
+        return Icons.shopping_bag_rounded;
+      case 'job_interview':
+        return Icons.work_rounded;
+      case 'small_talk':
+        return Icons.people_rounded;
+      case 'general':
+        return Icons.forum_rounded;
+      default:
+        return difficultyIcon;
     }
   }
 

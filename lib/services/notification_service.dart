@@ -16,24 +16,24 @@ class NotificationService {
 
   // Motivasyon bildirimleri
   static const List<String> _motivationalMessages = [
-    "🎯 Bugün İngilizce pratiği yaptın mı? 5 dakika bile fark yaratır!",
-    "🌟 Her gün küçük adımlar, büyük başarılar getirir. Hadi pratik yapalım!",
-    "💪 Dil öğrenmek maraton, sprint değil. Bugün de devam edelim!",
-    "🚀 Konuşma becerilerini geliştirmek için harika bir gün. Başlayalım!",
-    "📚 Bugün yeni kelimeler öğrenmeye hazır mısın?",
-    "🎤 Sesli pratik yaparak akıcılığını artır. Hemen başla!",
-    "⭐ Düzenli pratik = Hızlı ilerleme. Bugün senin günün!",
-    "🌈 Her konuşma bir adım ileri. Bugün de adım at!",
-    "🔥 Streak'ini koru! Bugün de pratik yap.",
-    "💫 İngilizce konuşma özgüvenin her gün artıyor. Devam et!",
+    "Did you practice English today? Even 5 minutes makes a difference.",
+    "Small steps every day bring big success. Keep practicing.",
+    "Learning a language requires consistency. Move forward with your goals today.",
+    "It's a great day to improve your speaking skills. Let's start.",
+    "Are you ready to learn new words today?",
+    "Improve your fluency by practicing aloud.",
+    "Regular practice leads to fast progress. Pick up where you left off.",
+    "Every conversation is a step forward. Practice today, too.",
+    "Keep your streak! Complete your practice today.",
+    "Your confidence in speaking English is growing every day.",
   ];
 
   // Premium tanıtım mesajları
   static const List<String> _premiumMessages = [
-    "👑 Premium ile sınırsız pratik! Şimdi dene.",
-    "🎁 Premium üyelikle tüm özelliklere eriş!",
-    "⚡ Premium ile daha hızlı öğren, daha çok pratik yap!",
-    "💎 Premium avantajlarını keşfet. Sınırsız konuşma seni bekliyor!",
+    "Get unlimited practice with a Premium membership.",
+    "Unlock all features with a Premium account.",
+    "Reach your goals faster with Premium.",
+    "Discover Premium benefits and experience unlimited conversations.",
   ];
 
   Future<void> initialize() async {
@@ -79,12 +79,13 @@ class NotificationService {
     required String type,
     required String title,
     required String message,
+    DateTime? timestamp,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final notifications = prefs.getStringList('notification_history') ?? [];
 
-    final now = DateTime.now().toIso8601String();
-    final entry = '$now|$type|$title|$message';
+    final dateStr = (timestamp ?? DateTime.now()).toIso8601String();
+    final entry = '$dateStr|$type|$title|$message';
 
     // En başa ekle (yeni bildirimler üstte)
     notifications.insert(0, entry);
@@ -111,11 +112,11 @@ class NotificationService {
       NotificationDetails(
         android: AndroidNotificationDetails(
           type == 'premium' ? 'premium_reminder' : 'daily_motivation',
-          type == 'premium' ? 'Premium Hatırlatıcı' : 'Günlük Motivasyon',
+          type == 'premium' ? 'Premium Reminder' : 'Daily Motivation',
           channelDescription:
               type == 'premium'
-                  ? 'Haftalık premium hatırlatma bildirimleri'
-                  : 'Günlük motivasyon bildirimleri',
+                  ? 'Weekly premium reminder notifications'
+                  : 'Daily motivation notifications',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
@@ -152,14 +153,14 @@ class NotificationService {
   Future<void> scheduleDailyMotivation() async {
     await _notifications.zonedSchedule(
       1, // Bildirim ID
-      'İngilizce Pratik Zamanı! 🎯',
+      'English Practice Time',
       _getRandomMotivationalMessage(),
       _nextInstanceOfTime(19, 0), // Akşam 7
       NotificationDetails(
         android: AndroidNotificationDetails(
           'daily_motivation',
-          'Günlük Motivasyon',
-          channelDescription: 'Günlük motivasyon bildirimleri',
+          'Daily Motivation',
+          channelDescription: 'Daily motivation notifications',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
@@ -181,14 +182,14 @@ class NotificationService {
   Future<void> scheduleWeeklyPremiumReminder() async {
     await _notifications.zonedSchedule(
       2, // Bildirim ID
-      'Premium Fırsatı! 👑',
+      'Premium Opportunity',
       _getRandomPremiumMessage(),
       _nextInstanceOfDayAndTime(DateTime.monday, 12, 0),
       NotificationDetails(
         android: AndroidNotificationDetails(
           'premium_reminder',
-          'Premium Hatırlatıcı',
-          channelDescription: 'Haftalık premium hatırlatma bildirimleri',
+          'Premium Reminder',
+          channelDescription: 'Weekly premium reminder notifications',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
           icon: '@mipmap/ic_launcher',
@@ -273,7 +274,7 @@ class NotificationService {
       return {
         'timestamp': DateTime.now(),
         'type': 'unknown',
-        'title': 'Bildirim',
+        'title': 'Notification',
         'message': n,
       };
     }).toList();
@@ -290,6 +291,9 @@ class NotificationService {
     await initialize();
     await requestPermission();
 
+    // Geçmiş bildirimleri kontrol et ve eksik olanları ekle
+    await _backfillMissedNotifications(isPremium: isPremium);
+
     // Günlük motivasyon bildirimi
     await scheduleDailyMotivation();
 
@@ -298,6 +302,117 @@ class NotificationService {
       await scheduleWeeklyPremiumReminder();
     } else {
       await cancelPremiumReminder();
+    }
+  }
+
+  /// Uygulama açıldığında, son bildirimden bu yana kaçırılmış bildirimleri geçmişe ekle
+  Future<void> _backfillMissedNotifications({required bool isPremium}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastDailyCheck = prefs.getString('last_daily_notification_date');
+    final lastWeeklyCheck = prefs.getString('last_weekly_notification_date');
+    final now = DateTime.now();
+
+    // === Günlük motivasyon bildirimleri ===
+    DateTime startDate;
+    if (lastDailyCheck != null) {
+      startDate =
+          DateTime.tryParse(lastDailyCheck) ??
+          now.subtract(const Duration(days: 1));
+      // Bir sonraki günden başla
+      startDate = DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      ).add(const Duration(days: 1));
+    } else {
+      // İlk kez - sadece bugün için ekle
+      startDate = DateTime(now.year, now.month, now.day);
+    }
+
+    // Bugünün saat 19:00'u geçtiyse bugünü de dahil et
+    final todayNotificationTime = DateTime(now.year, now.month, now.day, 19, 0);
+    final endDate =
+        now.isAfter(todayNotificationTime)
+            ? DateTime(now.year, now.month, now.day)
+            : DateTime(
+              now.year,
+              now.month,
+              now.day,
+            ).subtract(const Duration(days: 1));
+
+    // Eksik günleri doldur (maksimum 7 gün geriye git)
+    var currentDate = startDate;
+    int addedCount = 0;
+    while (!currentDate.isAfter(endDate) && addedCount < 7) {
+      final notificationTime = DateTime(
+        currentDate.year,
+        currentDate.month,
+        currentDate.day,
+        19,
+        0,
+      );
+      await _saveNotificationToHistory(
+        type: 'motivation',
+        title: 'English Practice Time',
+        message: _getRandomMotivationalMessage(),
+        timestamp: notificationTime,
+      );
+      currentDate = currentDate.add(const Duration(days: 1));
+      addedCount++;
+    }
+
+    // Son günlük bildirim tarihini güncelle
+    if (now.isAfter(todayNotificationTime)) {
+      await prefs.setString(
+        'last_daily_notification_date',
+        DateTime(now.year, now.month, now.day).toIso8601String(),
+      );
+    } else if (endDate.isAfter(startDate.subtract(const Duration(days: 1)))) {
+      await prefs.setString(
+        'last_daily_notification_date',
+        endDate.toIso8601String(),
+      );
+    }
+
+    // === Haftalık premium bildirimi ===
+    if (!isPremium) {
+      DateTime lastWeekly;
+      if (lastWeeklyCheck != null) {
+        lastWeekly =
+            DateTime.tryParse(lastWeeklyCheck) ??
+            now.subtract(const Duration(days: 8));
+      } else {
+        lastWeekly = now.subtract(const Duration(days: 8));
+      }
+
+      // Son bildirimden bu yana 7 gün geçtiyse ekle
+      if (now.difference(lastWeekly).inDays >= 7) {
+        // En son Pazartesi'yi bul
+        var lastMonday = now;
+        while (lastMonday.weekday != DateTime.monday) {
+          lastMonday = lastMonday.subtract(const Duration(days: 1));
+        }
+        final mondayNoon = DateTime(
+          lastMonday.year,
+          lastMonday.month,
+          lastMonday.day,
+          12,
+          0,
+        );
+
+        if (mondayNoon.isBefore(now) && mondayNoon.isAfter(lastWeekly)) {
+          await _saveNotificationToHistory(
+            type: 'premium',
+            title: 'Premium Opportunity',
+            message: _getRandomPremiumMessage(),
+            timestamp: mondayNoon,
+          );
+          await prefs.setString(
+            'last_weekly_notification_date',
+            mondayNoon.toIso8601String(),
+          );
+        }
+      }
     }
   }
 }

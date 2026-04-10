@@ -105,7 +105,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ),
                   const Expanded(
                     child: Text(
-                      'İlerlemeniz',
+                      'Your Progress',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -189,7 +189,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Kullanım İstatistikleri',
+          'Usage Statistics',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -224,7 +224,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       ),
                     ),
                     Text(
-                      'dakika bugün',
+                      'minutes today',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 12,
@@ -260,7 +260,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       ),
                     ),
                     Text(
-                      'dakika bu hafta',
+                      'minutes this week',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 12,
@@ -286,7 +286,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Haftalık Aktivite',
+          'Weekly Activity',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -322,16 +322,21 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       const SizedBox(height: 4),
                       Container(
                         width: 32,
-                        height: height < 8 ? 8 : height,
+                        height: entry.value == 0
+                            ? 4
+                            : (height < 16 ? 16 : height),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFF10B981),
-                              const Color(0xFF34D399),
-                            ],
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                          ),
+                          gradient: entry.value == 0
+                              ? null
+                              : const LinearGradient(
+                                  colors: [
+                                    Color(0xFF10B981),
+                                    Color(0xFF34D399),
+                                  ],
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                ),
+                          color: entry.value == 0 ? Colors.grey.shade200 : null,
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
@@ -372,14 +377,18 @@ class _ProgressScreenState extends State<ProgressScreen> {
         ),
         child: Row(
           children: [
-            const Text('👑', style: TextStyle(fontSize: 40)),
+            const Icon(
+              Icons.workspace_premium_rounded,
+              color: Colors.amber,
+              size: 40,
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Premium\'a Geç',
+                    'Get Premium',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -388,7 +397,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Sınırsız pratik için ${premiumProvider.monthlyPrice}/ay',
+                    'For unlimited practice, ${premiumProvider.monthlyPrice}/month',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: 13,
@@ -430,10 +439,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
       ),
       child: Column(
         children: [
-          Text(levelInfo['emoji']!, style: const TextStyle(fontSize: 72)),
+          Icon(levelInfo['icon']! as IconData, size: 72, color: Colors.white),
           const SizedBox(height: 16),
           Text(
-            'Seviyeniz',
+            'Your Level',
             style: TextStyle(
               color: Colors.white.withOpacity(0.8),
               fontSize: 14,
@@ -466,33 +475,34 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
-  Map<String, String> _getLevelInfo(String level) {
+  Map<String, dynamic> _getLevelInfo(String level) {
     switch (level.toLowerCase()) {
       case 'beginner':
         return {
-          'emoji': '🌱',
-          'name': 'Başlangıç',
+          'icon': Icons.eco_rounded,
+          'name': 'Beginner',
           'description':
-              'İngilizce yolculuğuna güzel bir başlangıç yaptınız. Hedeflere doğru ilerleyin!',
+              'You made a great start on your English journey. Keep moving towards your goals!',
         };
       case 'intermediate':
         return {
-          'emoji': '🌿',
-          'name': 'Orta Seviye',
+          'icon': Icons.timeline_rounded,
+          'name': 'Intermediate',
           'description':
-              'Dikkat çekici ilerleme! Konuşma becerileriniz geliştiriliyor.',
+              'Remarkable progress! Your speaking skills are improving.',
         };
       case 'advanced':
         return {
-          'emoji': '🌳',
-          'name': 'İleri Seviye',
-          'description': 'Mükemmel! Güvenle ve akıcı İngilizce konuşuyorsunuz.',
+          'icon': Icons.military_tech_rounded,
+          'name': 'Advanced',
+          'description':
+              'Excellent! You are speaking English fluently and with confidence.',
         };
       default:
         return {
-          'emoji': '🎓',
+          'icon': Icons.school_rounded,
           'name': level,
-          'description': 'Öğrenme yolculuğunuzda ilerleyin!',
+          'description': 'Keep progressing on your learning journey!',
         };
     }
   }
@@ -502,16 +512,18 @@ class _ProgressScreenState extends State<ProgressScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Genel Performans',
+          'General Performance',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
             color: Color(0xFF1E293B),
           ),
         ),
+
         const SizedBox(height: 16),
         GridView.count(
           shrinkWrap: true,
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 2,
           mainAxisSpacing: 16,
@@ -521,36 +533,36 @@ class _ProgressScreenState extends State<ProgressScreen> {
             _buildPerformanceCard(
               context,
               icon: Icons.schedule,
-              title: 'Toplam Pratik',
+              title: 'Total Practice',
               value: '${progress.totalTimeMinutes}',
-              unit: 'dakika',
+              unit: 'minutes',
               color: const Color(0xFF2563EB),
               bgColor: const Color(0xFFEFF6FF),
             ),
             _buildPerformanceCard(
               context,
               icon: Icons.chat_bubble_outline,
-              title: 'Tamamlanan',
+              title: 'Completed',
               value: '${progress.totalConversations}',
-              unit: 'sohbet',
+              unit: 'chats',
               color: const Color(0xFF9333EA),
               bgColor: const Color(0xFFFAF5FF),
             ),
             _buildPerformanceCard(
               context,
               icon: Icons.trending_up,
-              title: 'Senaryolar',
+              title: 'Scenarios',
               value: '${progress.completedScenarios.length}',
-              unit: 'tamamlanan',
+              unit: 'completed',
               color: const Color(0xFF10B981),
               bgColor: const Color(0xFFF0FDF4),
             ),
             _buildPerformanceCard(
               context,
               icon: Icons.local_fire_department,
-              title: 'Motivasyon',
+              title: 'Motivation',
               value: '${(progress.totalConversations ~/ 10) + 1}',
-              unit: 'seviye',
+              unit: 'level',
               color: const Color(0xFFF97316),
               bgColor: const Color(0xFFFFF7ED),
             ),
@@ -623,7 +635,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Başarılar',
+          'Achievements',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -635,26 +647,26 @@ class _ProgressScreenState extends State<ProgressScreen> {
         Row(
           children: [
             _buildAchievementBadge(
-              '🎯',
-              'İlk Adım',
+              Icons.track_changes_rounded,
+              'First Step',
               progress.totalConversations >= 1,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '⭐',
-              '5 Sohbet',
+              Icons.star_rounded,
+              '5 Chats',
               progress.totalConversations >= 5,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '🔥',
-              '10 Sohbet',
+              Icons.local_fire_department_rounded,
+              '10 Chats',
               progress.totalConversations >= 10,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '🏆',
-              '25 Sohbet',
+              Icons.emoji_events_rounded,
+              '25 Chats',
               progress.totalConversations >= 25,
             ),
           ],
@@ -664,26 +676,26 @@ class _ProgressScreenState extends State<ProgressScreen> {
         Row(
           children: [
             _buildAchievementBadge(
-              '⏱️',
-              '30 Dakika',
+              Icons.timer_outlined,
+              '30 Minutes',
               progress.totalTimeMinutes >= 30,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '🕐',
-              '1 Saat',
+              Icons.schedule_rounded,
+              '1 Hour',
               progress.totalTimeMinutes >= 60,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '💎',
-              '5 Saat',
+              Icons.diamond_outlined,
+              '5 Hours',
               progress.totalTimeMinutes >= 300,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '👑',
-              '10 Saat',
+              Icons.workspace_premium_rounded,
+              '10 Hours',
               progress.totalTimeMinutes >= 600,
             ),
           ],
@@ -693,26 +705,26 @@ class _ProgressScreenState extends State<ProgressScreen> {
         Row(
           children: [
             _buildAchievementBadge(
-              '📖',
-              '1 Senaryo',
+              Icons.menu_book_rounded,
+              '1 Scenario',
               progress.completedScenarios.length >= 1,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '📚',
-              '3 Senaryo',
+              Icons.library_books_rounded,
+              '3 Scenarios',
               progress.completedScenarios.length >= 3,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '🎓',
-              '5 Senaryo',
+              Icons.school_rounded,
+              '5 Scenarios',
               progress.completedScenarios.length >= 5,
             ),
             const SizedBox(width: 12),
             _buildAchievementBadge(
-              '🌟',
-              'Tüm Senaryolar',
+              Icons.stars_rounded,
+              'All Scenarios',
               _scenarios.isNotEmpty &&
                   progress.completedScenarios.length >= _scenarios.length,
             ),
@@ -722,7 +734,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
-  Widget _buildAchievementBadge(String emoji, String label, bool unlocked) {
+  Widget _buildAchievementBadge(
+    IconData iconData,
+    String label,
+    bool unlocked,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -739,7 +755,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
         ),
         child: Column(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 28)),
+            Icon(
+              iconData,
+              size: 28,
+              color: unlocked ? const Color(0xFFEC4899) : Colors.grey.shade400,
+            ),
             const SizedBox(height: 8),
             Text(
               label,
@@ -763,7 +783,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Tamamlanan Senaryolar',
+            'Completed Scenarios',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -788,7 +808,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Henüz senaryo tamamlanmadı',
+                  'No scenarios completed yet',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -797,7 +817,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Başlamak için konuşma pratikleri ekleyin',
+                  'Complete conversation practices to get started',
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
               ],
@@ -811,7 +831,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Tamamlanan Senaryolar',
+          'Completed Scenarios',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -869,25 +889,21 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final messages = [
       (
         '🚀',
-        'Harika İlerleme!',
-        "Bu hızda ilerlerseniz İngilizce'de akıcı hale geleceksiniz.",
+        'Great Progress!',
+        "If you keep up this pace, you'll become fluent in English.",
       ),
       (
         '💪',
-        'Her Gün Daha İyi!',
-        'Tutarlı pratik yaparak başarıya ulaşıyorsunuz.',
+        'Better Every Day!',
+        'You are achieving success through consistent practice.',
       ),
       (
         '🌟',
-        'Başarı Yolunda!',
-        'Hedeflerinize doğru emin adımlarla ilerliyorsunuz.',
+        'On the Path to Success!',
+        'You are taking steady steps towards your goals.',
       ),
-      (
-        '🎯',
-        'Hedefe Yaklaşıyorsunuz!',
-        'Bu motivasyonla çok uzaklara gidebilirsiniz.',
-      ),
-      ('🏅', 'Harika Bir Çalışma!', 'İngilizce becerileriniz hızla gelişiyor.'),
+      ('🎯', 'Getting Closer!', 'With this motivation, you can go very far.'),
+      ('🏅', 'Great Work!', 'Your English skills are improving rapidly.'),
     ];
 
     final randomMessage =

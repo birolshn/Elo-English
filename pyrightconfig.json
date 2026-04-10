@@ -1,0 +1,16 @@
+{
+  "pythonVersion": "3.13",
+  "pythonPlatform": "Darwin",
+  "include": [
+    "lib/backend"
+  ],
+  "exclude": [
+    "lib/backend/venv",
+    "android",
+    "ios",
+    "build",
+    ".dart_tool"
+  ],
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false
+}
