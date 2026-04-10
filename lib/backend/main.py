@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -56,17 +55,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.get("/privacy", response_class=HTMLResponse)
-async def get_privacy_policy():
-    try:
-        # Use absolute path relative to this script's location
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(base_dir, "privacy_policy.html")
-        with open(file_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        return "<h1>Privacy Policy</h1><p>Not found.</p>"
 
 @app.post("/upload/avatar")
 async def upload_avatar(request: Request, file: UploadFile = File(...)):

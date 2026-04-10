@@ -59,7 +59,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   IconButton(
                     onPressed: () async {
                       final url = Uri.parse(
-                        'https://elo-english-api.onrender.com/privacy',
+                        'https://birolshn.github.io/Elo-English/privacy_policy.html',
                       );
                       if (await canLaunchUrl(url)) {
                         await launchUrl(
