@@ -8,9 +8,12 @@ class ApiService {
   static const String _productionUrl = 'https://elo-english.onrender.com';
 
   static String get baseUrl {
-    // Release modda production URL kullan
-    const isRelease = bool.fromEnvironment('dart.vm.product');
-    if (isRelease) {
+    // Release veya Profile modda (gerçek cihaz testi) production URL'i zorla
+    // Çünkü profile modda simülatör değil gerçek cihaz kullanıyoruz ve localhost'a erişemeyiz.
+    const isProduction = bool.fromEnvironment('dart.vm.product') || 
+                         bool.fromEnvironment('dart.vm.profile');
+    
+    if (isProduction || !Platform.isIOS && !Platform.isAndroid) {
       return _productionUrl;
     }
 
