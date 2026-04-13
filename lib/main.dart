@@ -38,7 +38,7 @@ Future<void> initializeRevenueCat() async {
   // Sadece iOS için (App Store'da yayınlanacak)
   if (Platform.isIOS) {
     final configuration = PurchasesConfiguration(
-      'appl_WYcKwTZCJwqCoeAHmjHTayNWbqw',
+      'appl_WYcKwTZCJwqCoeAHmjHTayNWBqw',
     );
     await Purchases.configure(configuration);
   }
@@ -73,7 +73,6 @@ class AppTheme {
         onSecondary: white,
         onSurface: darkText,
       ),
-      fontFamily: 'Poppins',
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           fontSize: 32,

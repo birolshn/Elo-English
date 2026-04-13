@@ -27,6 +27,7 @@ class _PremiumPopupState extends State<PremiumPopup> {
 
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 400),
         decoration: BoxDecoration(
@@ -40,228 +41,229 @@ class _PremiumPopupState extends State<PremiumPopup> {
             ),
           ],
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Gradient Header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF9333EA), Color(0xFFEC4899)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Scrollable content area
+            Flexible(
+              child: SingleChildScrollView(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      widget.triggerContext == 'daily_limit'
-                          ? '⏰'
-                          : (widget.triggerContext == 'ielts' ? '🎓' : '👑'),
-                      style: const TextStyle(fontSize: 48),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.triggerContext == 'daily_limit'
-                          ? 'Daily Limit Reached!'
-                          : (widget.triggerContext == 'ielts'
-                              ? 'IELTS Speaking is Premium'
-                              : 'Premium Membership'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                    // Gradient Header
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF9333EA), Color(0xFFEC4899)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          topRight: Radius.circular(24),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            widget.triggerContext == 'daily_limit'
+                                ? '⏰'
+                                : (widget.triggerContext == 'ielts' ? '🎓' : '👑'),
+                            style: const TextStyle(fontSize: 48),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            widget.triggerContext == 'daily_limit'
+                                ? 'Daily Limit Reached!'
+                                : (widget.triggerContext == 'ielts'
+                                    ? 'IELTS Speaking is Premium'
+                                    : 'Premium Membership'),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            widget.triggerContext == 'daily_limit'
+                                ? 'You\'ve used today\'s free conversations! Come back tomorrow or go Premium for unlimited practice.'
+                                : (widget.triggerContext == 'ielts'
+                                    ? 'Practice with AI-powered mock tests and get band score feedback.'
+                                    : 'Unlimited English practice opportunities!'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.triggerContext == 'daily_limit'
-                          ? 'You\'ve used today\'s free conversations! Come back tomorrow or go Premium for unlimited practice.'
-                          : (widget.triggerContext == 'ielts'
-                              ? 'Practice with AI-powered mock tests and get band score feedback.'
-                              : 'Unlimited English practice opportunities!'),
-                      textAlign: TextAlign.center,
+
+                    // Benefits
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                      child: Column(
+                        children: [
+                          _buildBenefitItem(
+                            icon: Icons.record_voice_over_rounded,
+                            title: 'IELTS Speaking Simulator',
+                            description: 'Full Part 1, 2 & 3 mock tests with AI examiner',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildBenefitItem(
+                            icon: Icons.all_inclusive,
+                            title: 'Unlimited Conversations',
+                            description: 'Practice without limits in all scenarios',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildBenefitItem(
+                            icon: Icons.timer_off,
+                            title: 'No Time Limit',
+                            description: 'Practice as long as you want',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildBenefitItem(
+                            icon: Icons.star,
+                            title: 'Premium Scenarios',
+                            description: 'Access to IELTS and special content',
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Price & Plan Selection
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        children: [
+                          const Divider(),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Choose a plan:',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          const SizedBox(height: 12),
+                          // 2x2 Grid for 4 plans
+                          Row(
+                            children: [
+                              _buildPlanOption(
+                                title: '1 Month',
+                                price: premiumProvider.monthlyPrice,
+                                subtitle: 'Flexible',
+                                planId: 'monthly',
+                              ),
+                              const SizedBox(width: 12),
+                              _buildPlanOption(
+                                title: '3 Months',
+                                price: premiumProvider.threeMonthPrice,
+                                subtitle: 'Popular',
+                                planId: '3month',
+                                isMostPopular: true,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              _buildPlanOption(
+                                title: '6 Months',
+                                price: premiumProvider.sixMonthPrice,
+                                subtitle: 'Advantageous',
+                                planId: '6month',
+                              ),
+                              const SizedBox(width: 12),
+                              _buildPlanOption(
+                                title: '12 Months',
+                                price: premiumProvider.yearlyPrice,
+                                subtitle: '${premiumProvider.yearlyMonthlyEquivalent}/month',
+                                planId: 'yearly',
+                                isBestValue: true,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+
+            // Fixed CTA at the bottom
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: premiumProvider.isLoading
+                          ? null
+                          : () async {
+                              final success = await premiumProvider.showPaywall();
+                              if (success && mounted) {
+                                widget.onPurchaseSuccess?.call();
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('🎉 Premium membership activated!'),
+                                    backgroundColor: Color(0xFF10B981),
+                                  ),
+                                );
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF9333EA),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: premiumProvider.isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              'Get Premium',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onClose?.call();
+                    },
+                    child: Text(
+                      'Maybe Later',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.grey.shade500,
                         fontSize: 14,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-
-              // Benefits
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
-                child: Column(
-                  children: [
-                    _buildBenefitItem(
-                      icon: Icons.record_voice_over_rounded,
-                      title: 'IELTS Speaking Simulator',
-                      description: 'Full Part 1, 2 & 3 mock tests with AI examiner',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildBenefitItem(
-                      icon: Icons.all_inclusive,
-                      title: 'Unlimited Conversations',
-                      description: 'Practice without limits in all scenarios',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildBenefitItem(
-                      icon: Icons.timer_off,
-                      title: 'No Time Limit',
-                      description: 'Practice as long as you want',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildBenefitItem(
-                      icon: Icons.star,
-                      title: 'Premium Scenarios',
-                      description: 'Access to IELTS and special content',
-                    ),
-                  ],
-                ),
-              ),
-
-              // Price & Plan Selection
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    const Divider(),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Choose a plan:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    const SizedBox(height: 12),
-                    // 2x2 Grid for 4 plans
-                    Row(
-                      children: [
-                        _buildPlanOption(
-                          title: '1 Month',
-                          price: premiumProvider.monthlyPrice,
-                          subtitle: 'Flexible',
-                          planId: 'monthly',
-                        ),
-                        const SizedBox(width: 12),
-                        _buildPlanOption(
-                          title: '3 Months',
-                          price: premiumProvider.threeMonthPrice,
-                          subtitle: 'Popular',
-                          planId: '3month',
-                          isMostPopular: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        _buildPlanOption(
-                          title: '6 Months',
-                          price: premiumProvider.sixMonthPrice,
-                          subtitle: 'Advantageous',
-                          planId: '6month',
-                        ),
-                        const SizedBox(width: 12),
-                        _buildPlanOption(
-                          title: '12 Months',
-                          price: premiumProvider.yearlyPrice,
-                          subtitle: '${premiumProvider.yearlyMonthlyEquivalent}/month',
-                          planId: 'yearly',
-                          isBestValue: true,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // CTA
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed:
-                            premiumProvider.isLoading
-                                ? null
-                                : () async {
-                                  // RevenueCat paywall'ını göster
-                                  // Not: Paywall her zaman en güncel paketleri gösterir
-                                  final success =
-                                      await premiumProvider.showPaywall();
-                                  if (success && mounted) {
-                                    widget.onPurchaseSuccess?.call();
-                                    Navigator.of(context).pop();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          '🎉 Premium membership activated!',
-                                        ),
-                                        backgroundColor: Color(0xFF10B981),
-                                      ),
-                                    );
-                                  }
-                                },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF9333EA),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        child:
-                            premiumProvider.isLoading
-                                ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                                : const Text(
-                                  'Get Premium',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        widget.onClose?.call();
-                      },
-                      child: Text(
-                        'Maybe Later',
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

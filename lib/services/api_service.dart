@@ -5,7 +5,7 @@ import '../models/models.dart';
 
 class ApiService {
   // Production URL - Render.com backend (Gemini AI only, stateless)
-  static const String _productionUrl = 'https://elo-english-api.onrender.com';
+  static const String _productionUrl = 'https://elo-english.onrender.com';
 
   static String get baseUrl {
     // Release modda production URL kullan

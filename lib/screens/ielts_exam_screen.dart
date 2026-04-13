@@ -22,6 +22,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
 
   bool _isListening = false;
   bool _speechEnabled = false;
+  bool _pendingAutoSend = false;
   IeltsProvider? _ieltsProvider;
   bool _isKeyboardMode = false;
 
@@ -57,6 +58,13 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
           _pulseController.stop();
           _pulseController.reset();
           setState(() => _isListening = false);
+          // Kullanıcı mikrofonu manuel kapattıysa mesajı otomatik gönder
+          if (_pendingAutoSend) {
+            _pendingAutoSend = false;
+            if (_messageController.text.trim().isNotEmpty) {
+              _sendMessage();
+            }
+          }
         } else if (status == 'listening' && mounted) {
           _pulseController.repeat(reverse: true);
         }
@@ -119,6 +127,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   }
 
   Future<void> _stopListening() async {
+    _pendingAutoSend = true;
     await _speech.stop();
     _pulseController.stop();
     _pulseController.reset();

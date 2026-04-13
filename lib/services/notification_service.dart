@@ -111,11 +111,13 @@ class NotificationService {
       body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          type == 'premium' ? 'premium_reminder' : 'daily_motivation',
-          type == 'premium' ? 'Premium Reminder' : 'Daily Motivation',
+          type == 'premium' ? 'premium_reminder' : type == 'leaderboard_drop' ? 'leaderboard_alerts' : 'daily_motivation',
+          type == 'premium' ? 'Premium Reminder' : type == 'leaderboard_drop' ? 'Leaderboard Alerts' : 'Daily Motivation',
           channelDescription:
               type == 'premium'
                   ? 'Weekly premium reminder notifications'
+                  : type == 'leaderboard_drop'
+                  ? 'Leaderboard rank change alerts'
                   : 'Daily motivation notifications',
           importance: Importance.high,
           priority: Priority.high,

@@ -107,23 +107,23 @@ class AuthService {
     debugPrint('FirebaseAuthException: ${e.code}');
     switch (e.code) {
       case 'user-not-found':
-        return 'Bu e-posta adresiyle kayıtlı bir kullanıcı bulunamadı.';
+        return 'No account found with this email address.';
       case 'wrong-password':
-        return 'Şifre yanlış. Lütfen tekrar deneyin.';
+        return 'Incorrect password. Please try again.';
       case 'email-already-in-use':
-        return 'Bu e-posta adresi zaten kullanımda.';
+        return 'This email address is already in use.';
       case 'weak-password':
-        return 'Şifre çok zayıf. En az 6 karakter kullanın.';
+        return 'Password is too weak. Use at least 6 characters.';
       case 'invalid-email':
-        return 'Geçersiz e-posta adresi.';
+        return 'Invalid email address.';
       case 'too-many-requests':
-        return 'Çok fazla deneme. Lütfen daha sonra tekrar deneyin.';
+        return 'Too many attempts. Please try again later.';
       case 'network-request-failed':
-        return 'İnternet bağlantısı hatası. Lütfen bağlantınızı kontrol edin.';
+        return 'Network error. Please check your connection.';
       case 'invalid-credential':
-        return 'E-posta veya şifre hatalı.';
+        return 'Invalid email or password.';
       default:
-        return 'Bir hata oluştu. Lütfen tekrar deneyin.';
+        return 'An error occurred. Please try again.';
     }
   }
 }

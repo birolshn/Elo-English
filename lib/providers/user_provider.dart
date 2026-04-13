@@ -3,18 +3,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
+import '../services/achievement_service.dart';
 
 class UserProvider with ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   UserProgress? _progress;
   User? _authUser;
-  String _userId = 'user_123'; // Fallback / Dev ID
+  String _userId = '';
   bool _isLoading = false;
 
-  // Leaderboard
+  final AchievementService _achievementService = AchievementService();
+
   List<LeaderboardEntry> _leaderboard = [];
   int? _currentRank;
   bool _isLeaderboardLoading = false;
+  List<Achievement> _pendingAchievements = [];
+  bool _showLeaderboardEntryPopup = false;
+  bool _showLeaderboardDropNotification = false;
 
   // Kullanım takibi
   int _todayUsedMinutes = 0;
@@ -39,6 +44,24 @@ class UserProvider with ChangeNotifier {
   int get todayScenariosStarted => _todayScenariosStarted;
   List<LeaderboardEntry> get leaderboard => _leaderboard;
   int? get currentRank => _currentRank;
+  List<Achievement> get pendingAchievements => _pendingAchievements;
+  bool get showLeaderboardEntryPopup => _showLeaderboardEntryPopup;
+  bool get showLeaderboardDropNotification => _showLeaderboardDropNotification;
+
+  void clearPendingAchievements() {
+    _pendingAchievements = [];
+    notifyListeners();
+  }
+
+  void clearLeaderboardEntryPopup() {
+    _showLeaderboardEntryPopup = false;
+    notifyListeners();
+  }
+
+  void clearLeaderboardDropNotification() {
+    _showLeaderboardDropNotification = false;
+    notifyListeners();
+  }
 
   int get remainingDailyScenarios =>
       (dailyScenarioLimit - _todayScenariosStarted).clamp(
@@ -122,6 +145,9 @@ class UserProvider with ChangeNotifier {
       }
 
       _updateLevel();
+
+      // Kullanıcının weekly rank'ini hesapla
+      await loadCurrentUserRank();
     } catch (e) {
       // Hata durumunda varsayılan değerler
       if (_progress == null) {
@@ -187,12 +213,41 @@ class UserProvider with ChangeNotifier {
           _leaderboard.where((e) => e.userId == userId).firstOrNull;
       if (myEntry != null) {
         _currentRank = myEntry.rank;
+      } else {
+          await loadCurrentUserRank();
       }
+
+      await _checkLeaderboardRankChange();
     } catch (e) {
       debugPrint('Leaderboard loading error: $e');
     } finally {
       _isLeaderboardLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Kullanıcının gerçek weekly rank'ini Firestore'dan hesapla
+  /// Leaderboard limitinden bağımsız olarak çalışır
+  Future<void> loadCurrentUserRank() async {
+    try {
+      // 1. Kullanıcının weekly_xp değerini al
+      final userDoc = await _userDoc(userId).get();
+      if (!userDoc.exists) return;
+
+      final userData = userDoc.data() as Map<String, dynamic>?;
+      final userXp = userData?['weekly_xp'] ?? 0;
+
+      // 2. Daha yüksek XP'ye sahip kullanıcı sayısını say
+      final countSnapshot = await _firestore
+          .collection('users')
+          .where('weekly_xp', isGreaterThan: userXp)
+          .count()
+          .get();
+
+      _currentRank = (countSnapshot.count ?? 0) + 1;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Rank calculation error: $e');
     }
   }
 
@@ -317,6 +372,7 @@ class UserProvider with ChangeNotifier {
       debugPrint('Failed to sync progress to Firestore: $e');
     }
 
+    await _checkAchievements();
     notifyListeners();
   }
 
@@ -375,6 +431,40 @@ class UserProvider with ChangeNotifier {
 
     if (_progress!.currentLevel != newLevel) {
       _progress = _progress!.copyWith(currentLevel: newLevel);
+    }
+  }
+
+  Future<void> _checkAchievements() async {
+    if (_progress == null) return;
+    final newlyUnlocked = await _achievementService.checkAndUnlock(
+      totalConversations: _progress!.totalConversations,
+      totalTimeMinutes: _progress!.totalTimeMinutes,
+      completedScenariosCount: _progress!.completedScenarios.length,
+      totalScenariosCount: 0,
+      rank: _currentRank,
+    );
+    if (newlyUnlocked.isNotEmpty) {
+      _pendingAchievements = newlyUnlocked;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _checkLeaderboardRankChange() async {
+    final previousRank = await _achievementService.getPreviousRank();
+    final currentRank = _currentRank;
+
+    if (currentRank != null && currentRank <= 50) {
+      if (previousRank == null || previousRank > 50) {
+        _showLeaderboardEntryPopup = true;
+      }
+    } else if (currentRank != null && currentRank > 50) {
+      if (previousRank != null && previousRank <= 50) {
+        _showLeaderboardDropNotification = true;
+      }
+    }
+
+    if (currentRank != null) {
+      await _achievementService.savePreviousRank(currentRank);
     }
   }
 

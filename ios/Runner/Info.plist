@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>elo</string>
+	<string>Elo</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,13 +27,13 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Profil fotoğrafı çekmek için kameraya erişim gerekiyor.</string>
+	<string>Camera access is needed to take a profile photo.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Bu uygulama Ingilizce konuşma pratiği için mikrofona erişim istiyor</string>
+	<string>This app needs microphone access for English speaking practice.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Profil fotoğrafı seçmek için galeriye erişim gerekiyor.</string>
+	<string>Photo library access is needed to select a profile photo.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Bu uygulama konuşmanızı metne çevirmek için izin istiyor</string>
+	<string>This app needs speech recognition to convert your speech to text.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
@@ -48,15 +48,10 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>

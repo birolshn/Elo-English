@@ -763,7 +763,7 @@ class AccountScreen extends StatelessWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Hata: $e'),
+                            content: Text('Error: $e'),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -854,7 +854,7 @@ class AccountScreen extends StatelessWidget {
                   }
                 },
                 child: const Text(
-                  'Kaydet',
+                  'Save',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),

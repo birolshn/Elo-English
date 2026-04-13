@@ -28,6 +28,7 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   bool _isListening = false;
   bool _speechEnabled = false;
+  bool _pendingAutoSend = false;
   bool _isRecording = false;
   bool _isRecorderReady = false;
   String? _recordedFilePath;
@@ -72,6 +73,13 @@ class _ConversationScreenState extends State<ConversationScreen>
             _pulseController.stop();
             _pulseController.reset();
             setState(() => _isListening = false);
+            // Kullanıcı mikrofonu manuel kapattıysa mesajı otomatik gönder
+            if (_pendingAutoSend) {
+              _pendingAutoSend = false;
+              if (_messageController.text.trim().isNotEmpty) {
+                _sendMessage();
+              }
+            }
           } else if (status == 'listening' && mounted) {
             _pulseController.repeat(reverse: true);
           }
@@ -155,6 +163,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   }
 
   Future<void> _stopListening() async {
+    _pendingAutoSend = true;
     await _speech.stop();
     _pulseController.stop();
     _pulseController.reset();

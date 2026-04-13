@@ -25,13 +25,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _loadData();
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Sayfa her görüntülendiğinde verileri yenile
-    _loadData();
-  }
-
   Future<void> _loadData() async {
     // Haftalık veri yükle
     final userProvider = context.read<UserProvider>();
@@ -728,6 +721,23 @@ class _ProgressScreenState extends State<ProgressScreen> {
               _scenarios.isNotEmpty &&
                   progress.completedScenarios.length >= _scenarios.length,
             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            _buildAchievementBadge(
+              Icons.leaderboard_rounded,
+              'Top 50',
+              context.watch<UserProvider>().currentRank != null &&
+                  context.watch<UserProvider>().currentRank! <= 50,
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox()),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox()),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox()),
           ],
         ),
       ],
