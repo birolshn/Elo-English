@@ -29,9 +29,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   bool _isListening = false;
   bool _speechEnabled = false;
   bool _pendingAutoSend = false;
-  bool _isRecording = false;
   bool _isRecorderReady = false;
-  String? _recordedFilePath;
   bool _hasShownTimeUpDialog = false;
   bool _isKeyboardMode = false;
 

@@ -25,6 +25,16 @@ class Scenario {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'difficulty': difficulty,
+      'estimated_time': estimatedTime,
+    };
+  }
+
   IconData get difficultyIcon {
     switch (difficulty.toLowerCase()) {
       case 'beginner':

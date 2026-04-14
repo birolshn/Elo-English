@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
-import '../services/api_service.dart';
 import '../providers/conversation_provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/premium_provider.dart';
+import '../providers/scenario_provider.dart';
 import '../widgets/premium_popup.dart';
 
 class ScenarioListScreen extends StatefulWidget {
@@ -16,38 +16,17 @@ class ScenarioListScreen extends StatefulWidget {
 }
 
 class _ScenarioListScreenState extends State<ScenarioListScreen> {
-  final ApiService _apiService = ApiService();
-  List<Scenario> _scenarios = [];
-  bool _isLoading = true;
-  String? _error;
-
   @override
   void initState() {
     super.initState();
-    _loadScenarios();
-  }
-
-  Future<void> _loadScenarios() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _error = null;
+    // Verileri yenile (silent:true sayesinde önbellekteki veriyi bozmaz)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ScenarioProvider>().loadScenarios(silent: true).catchError((
+        e,
+      ) {
+        debugPrint('Error loading scenarios: $e');
+      });
     });
-
-    try {
-      final scenarios = await _apiService.getScenarios();
-      if (!mounted) return;
-      setState(() {
-        _scenarios = scenarios;
-        _isLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
   }
 
   @override
@@ -173,37 +152,46 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
             ),
             // Content
             Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _error != null
-                      ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              size: 64,
-                              color: Colors.red,
-                            ),
-                            const SizedBox(height: 16),
-                            Text('Error: $_error'),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _loadScenarios,
-                              child: const Text('Try Again'),
-                            ),
-                          ],
-                        ),
-                      )
-                      : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _scenarios.length,
-                        itemBuilder: (context, index) {
-                          final scenario = _scenarios[index];
-                          return _buildScenarioCard(context, scenario);
-                        },
+              child: Consumer<ScenarioProvider>(
+                builder: (context, scenarioProvider, _) {
+                  if (scenarioProvider.isLoading &&
+                      scenarioProvider.scenarios.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (scenarioProvider.error != null &&
+                      scenarioProvider.scenarios.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            size: 64,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(height: 16),
+                          Text('Error: ${scenarioProvider.error}'),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () => scenarioProvider.loadScenarios(),
+                            child: const Text('Try Again'),
+                          ),
+                        ],
                       ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: scenarioProvider.scenarios.length,
+                    itemBuilder: (context, index) {
+                      final scenario = scenarioProvider.scenarios[index];
+                      return _buildScenarioCard(context, scenario);
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -255,7 +243,11 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.alarm_rounded, size: 56, color: Colors.orange),
+                  const Icon(
+                    Icons.alarm_rounded,
+                    size: 56,
+                    color: Colors.orange,
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     'Daily Limit Reached!',
@@ -277,7 +269,10 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pop();
-                        showPremiumPopup(context, triggerContext: 'daily_limit');
+                        showPremiumPopup(
+                          context,
+                          triggerContext: 'daily_limit',
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF9333EA),
@@ -290,7 +285,11 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.workspace_premium_rounded, size: 18, color: Colors.white),
+                          Icon(
+                            Icons.workspace_premium_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
                           Text(
                             'Upgrade to Premium',
                             style: TextStyle(fontWeight: FontWeight.bold),
@@ -390,7 +389,11 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                                 ),
                                 child: const Row(
                                   children: [
-                                    Icon(Icons.star, color: Colors.white, size: 10),
+                                    Icon(
+                                      Icons.star,
+                                      color: Colors.white,
+                                      size: 10,
+                                    ),
                                     SizedBox(width: 2),
                                     Text(
                                       'PREMIUM',

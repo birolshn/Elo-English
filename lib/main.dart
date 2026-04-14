@@ -18,6 +18,7 @@ import 'providers/conversation_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/premium_provider.dart';
 import 'providers/ielts_provider.dart';
+import 'providers/scenario_provider.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -176,6 +177,7 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => PremiumProvider()),
         ChangeNotifierProvider(create: (_) => IeltsProvider()),
+        ChangeNotifierProvider(create: (_) => ScenarioProvider()),
       ],
       child: MaterialApp(
         title: 'AI English Partner',
@@ -227,6 +229,14 @@ class _AuthWrapperState extends State<AuthWrapper> {
       // Bildirimleri kur (premium durumuna göre)
       final premiumProvider = context.read<PremiumProvider>();
       _setupNotifications(premiumProvider.isPremium);
+      
+      // Senaryoları önceden yükle (arka planda)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<ScenarioProvider>().loadScenarios(silent: true).catchError((e) {
+          debugPrint('Error pre-fetching scenarios: $e');
+        });
+      });
+
       return const MainTabScreen();
     } else {
       return const LoginScreen();

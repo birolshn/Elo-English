@@ -30,7 +30,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/scenarios'),
         headers: {'Content-Type': 'application/json'},
-      );
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -59,7 +59,7 @@ class ApiService {
           'conversation_history': conversationHistory,
           'user_level': userLevel,
         }),
-      );
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -132,7 +132,7 @@ class ApiService {
           'conversation_history': conversationHistory,
           'topic_card': topicCard,
         }),
-      );
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -153,7 +153,7 @@ class ApiService {
         Uri.parse('$baseUrl/ielts/evaluate'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'conversation_history': conversationHistory}),
-      );
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return json.decode(response.body);

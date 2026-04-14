@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/premium_provider.dart';
 import '../widgets/premium_popup.dart';
-import '../models/models.dart';
-import '../services/api_service.dart';
+import '../providers/scenario_provider.dart';
 
 class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
@@ -16,8 +15,6 @@ class ProgressScreen extends StatefulWidget {
 
 class _ProgressScreenState extends State<ProgressScreen> {
   Map<String, int> _weeklyData = {};
-  List<Scenario> _scenarios = [];
-  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
@@ -30,26 +27,29 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final userProvider = context.read<UserProvider>();
     final data = await userProvider.getWeeklyUsageData();
 
-    // Senaryoları yükle
-    try {
-      final scenarios = await _apiService.getScenarios();
-      if (mounted) {
-        setState(() {
-          _weeklyData = data;
-          _scenarios = scenarios;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _weeklyData = data;
-        });
-      }
+    if (mounted) {
+      setState(() {
+        _weeklyData = data;
+      });
     }
+
+    // Senaryoları yenile (gerekliyse)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ScenarioProvider>().loadScenarios(silent: true).catchError((
+        e,
+      ) {
+        debugPrint('Error loading scenarios in ProgressScreen: $e');
+      });
+    });
   }
 
-  String _getScenarioTitle(String scenarioId) {
-    final scenario = _scenarios.where((s) => s.id == scenarioId).firstOrNull;
+  String _getScenarioTitle(
+    ScenarioProvider scenarioProvider,
+    String scenarioId,
+  ) {
+    if (scenarioProvider.scenarios.isEmpty) return scenarioId;
+    final scenario =
+        scenarioProvider.scenarios.where((s) => s.id == scenarioId).firstOrNull;
     return scenario?.title ?? scenarioId;
   }
 
@@ -57,6 +57,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final premiumProvider = context.watch<PremiumProvider>();
+    final scenarioProvider = context.watch<ScenarioProvider>();
     final progress = userProvider.progress;
     final primaryColor = Theme.of(context).colorScheme.primary;
 
@@ -139,7 +140,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
             // Content
             Expanded(
               child:
-                  progress == null
+                  progress == null ||
+                          scenarioProvider.isLoading &&
+                              scenarioProvider.scenarios.isEmpty
                       ? const Center(child: CircularProgressIndicator())
                       : SingleChildScrollView(
                         padding: const EdgeInsets.all(20),
@@ -154,9 +157,17 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             const SizedBox(height: 28),
                             _buildPerformanceSection(context, progress),
                             const SizedBox(height: 28),
-                            _buildAchievementsSection(context, progress),
+                            _buildAchievementsSection(
+                              context,
+                              progress,
+                              scenarioProvider,
+                            ),
                             const SizedBox(height: 28),
-                            _buildCompletedScenariosSection(context, progress),
+                            _buildCompletedScenariosSection(
+                              context,
+                              progress,
+                              scenarioProvider,
+                            ),
                             const SizedBox(height: 28),
                             if (!premiumProvider.isPremium)
                               _buildPremiumBanner(context, premiumProvider),
@@ -315,20 +326,20 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       const SizedBox(height: 4),
                       Container(
                         width: 32,
-                        height: entry.value == 0
-                            ? 4
-                            : (height < 16 ? 16 : height),
+                        height:
+                            entry.value == 0 ? 4 : (height < 16 ? 16 : height),
                         decoration: BoxDecoration(
-                          gradient: entry.value == 0
-                              ? null
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFF10B981),
-                                    Color(0xFF34D399),
-                                  ],
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                ),
+                          gradient:
+                              entry.value == 0
+                                  ? null
+                                  : const LinearGradient(
+                                    colors: [
+                                      Color(0xFF10B981),
+                                      Color(0xFF34D399),
+                                    ],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                  ),
                           color: entry.value == 0 ? Colors.grey.shade200 : null,
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -623,7 +634,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
-  Widget _buildAchievementsSection(BuildContext context, progress) {
+  Widget _buildAchievementsSection(
+    BuildContext context,
+    progress,
+    ScenarioProvider scenarioProvider,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -718,8 +733,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
             _buildAchievementBadge(
               Icons.stars_rounded,
               'All Scenarios',
-              _scenarios.isNotEmpty &&
-                  progress.completedScenarios.length >= _scenarios.length,
+              scenarioProvider.scenarios.isNotEmpty &&
+                  progress.completedScenarios.length >=
+                      scenarioProvider.scenarios.length,
             ),
           ],
         ),
@@ -787,8 +803,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
-  Widget _buildCompletedScenariosSection(BuildContext context, progress) {
+  Widget _buildCompletedScenariosSection(
+    BuildContext context,
+    progress,
+    ScenarioProvider scenarioProvider,
+  ) {
     if (progress.completedScenarios.isEmpty) {
+      // ... (existing code for empty case)
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -817,18 +838,18 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   color: Color(0xFFCBD5E1),
                 ),
                 const SizedBox(height: 12),
-                Text(
+                const Text(
                   'No scenarios completed yet',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade600,
+                    color: Color(0xFF64748B),
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                const Text(
                   'Complete conversation practices to get started',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),
@@ -878,7 +899,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            _getScenarioTitle(scenario),
+                            _getScenarioTitle(scenarioProvider, scenario),
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,

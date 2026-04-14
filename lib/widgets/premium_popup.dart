@@ -71,9 +71,9 @@ class _PremiumPopupState extends State<PremiumPopup> {
                             widget.triggerContext == 'daily_limit'
                                 ? '⏰'
                                 : (widget.triggerContext == 'ielts' ? '🎓' : '👑'),
-                            style: const TextStyle(fontSize: 48),
+                            style: const TextStyle(fontSize: 32),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           Text(
                             widget.triggerContext == 'daily_limit'
                                 ? 'Daily Limit Reached!'
@@ -83,21 +83,21 @@ class _PremiumPopupState extends State<PremiumPopup> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 22,
+                              fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 4),
                           Text(
                             widget.triggerContext == 'daily_limit'
-                                ? 'You\'ve used today\'s free conversations! Come back tomorrow or go Premium for unlimited practice.'
+                                ? 'Daily free limit reached! Go Premium for unlimited practice.'
                                 : (widget.triggerContext == 'ielts'
-                                    ? 'Practice with AI-powered mock tests and get band score feedback.'
+                                    ? 'Practice with AI-powered mock tests and get feedback.'
                                     : 'Unlimited English practice opportunities!'),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.9),
-                              fontSize: 14,
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -106,31 +106,25 @@ class _PremiumPopupState extends State<PremiumPopup> {
 
                     // Benefits
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
                       child: Column(
                         children: [
                           _buildBenefitItem(
-                            icon: Icons.record_voice_over_rounded,
-                            title: 'IELTS Speaking Simulator',
-                            description: 'Full Part 1, 2 & 3 mock tests with AI examiner',
+                            icon: Icons.auto_awesome,
+                            title: 'IELTS Simulator & Feedback',
+                            description: 'Full mock tests with AI score feedback',
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           _buildBenefitItem(
                             icon: Icons.all_inclusive,
-                            title: 'Unlimited Conversations',
-                            description: 'Practice without limits in all scenarios',
+                            title: 'Unlimited Practice',
+                            description: 'No daily limits or time restrictions',
                           ),
-                          const SizedBox(height: 12),
-                          _buildBenefitItem(
-                            icon: Icons.timer_off,
-                            title: 'No Time Limit',
-                            description: 'Practice as long as you want',
-                          ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 8),
                           _buildBenefitItem(
                             icon: Icons.star,
-                            title: 'Premium Scenarios',
-                            description: 'Access to IELTS and special content',
+                            title: 'Advanced Scenarios',
+                            description: 'Access to professional & academic content',
                           ),
                         ],
                       ),
@@ -197,7 +191,7 @@ class _PremiumPopupState extends State<PremiumPopup> {
 
             // Fixed CTA at the bottom
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -222,7 +216,7 @@ class _PremiumPopupState extends State<PremiumPopup> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF9333EA),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -230,8 +224,8 @@ class _PremiumPopupState extends State<PremiumPopup> {
                       ),
                       child: premiumProvider.isLoading
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
+                              height: 18,
+                              width: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation(Colors.white),
@@ -246,17 +240,21 @@ class _PremiumPopupState extends State<PremiumPopup> {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 8),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).pop();
                       widget.onClose?.call();
                     },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 30),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     child: Text(
                       'Maybe Later',
                       style: TextStyle(
                         color: Colors.grey.shade500,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ),
