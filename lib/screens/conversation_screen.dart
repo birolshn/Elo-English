@@ -51,8 +51,21 @@ class _ConversationScreenState extends State<ConversationScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
     _initSpeech();
-    _initTts();
+    _initTts().then((_) {
+      // İlk mesajı otomatik seslendir (TTS hazır olduktan sonra)
+      _speakFirstMessage();
+    });
     _initRecorder();
+  }
+
+  Future<void> _speakFirstMessage() async {
+    // Kısa bir gecikme ile TTS'in hazır olmasını bekle
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    final messages = context.read<ConversationProvider>().messages;
+    if (messages.isNotEmpty && messages.first.role == 'assistant') {
+      _speak(messages.first.content);
+    }
   }
 
   @override
@@ -64,26 +77,22 @@ class _ConversationScreenState extends State<ConversationScreen>
 
   Future<void> _initSpeech() async {
     try {
+      // Önceki session'ı temizle (IELTS ekranından kalma olabilir)
+      await _speech.cancel();
+      
       _speechEnabled = await _speech.initialize(
         onStatus: (status) {
-          debugPrint('🎤 Speech status: $status');
+          debugPrint('🎤 Conv Speech status: $status');
           if (status == 'done' && mounted) {
             _pulseController.stop();
             _pulseController.reset();
             setState(() => _isListening = false);
-            // Kullanıcı mikrofonu manuel kapattıysa mesajı otomatik gönder
-            if (_pendingAutoSend) {
-              _pendingAutoSend = false;
-              if (_messageController.text.trim().isNotEmpty) {
-                _sendMessage();
-              }
-            }
           } else if (status == 'listening' && mounted) {
             _pulseController.repeat(reverse: true);
           }
         },
         onError: (error) {
-          debugPrint('❌ Speech error: $error');
+          debugPrint('❌ Conv Speech error: $error');
           if (mounted) {
             _pulseController.stop();
             _pulseController.reset();
@@ -91,7 +100,7 @@ class _ConversationScreenState extends State<ConversationScreen>
           }
         },
       );
-      debugPrint('🎤 Speech initialized: $_speechEnabled');
+      debugPrint('🎤 Conv Speech initialized: $_speechEnabled');
     } catch (e) {
       debugPrint('❌ Speech init exception: $e');
       _speechEnabled = false;
@@ -141,7 +150,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     // Önce dinlemeyi başlat (await yok - gecikmeyi önler)
     _speech.listen(
       onResult: (result) {
-        debugPrint('🎤 Recognized: ${result.recognizedWords}');
+        debugPrint('🎤 Conv Recognized: ${result.recognizedWords} (final: ${result.finalResult})');
         setState(() {
           if (existingText.isNotEmpty) {
             _messageController.text = '$existingText ${result.recognizedWords}';
@@ -149,6 +158,13 @@ class _ConversationScreenState extends State<ConversationScreen>
             _messageController.text = result.recognizedWords;
           }
         });
+        // Auto-send: finalResult geldiğinde ve pendingAutoSend true ise gönder
+        if (result.finalResult && _pendingAutoSend && mounted) {
+          _pendingAutoSend = false;
+          if (_messageController.text.trim().isNotEmpty) {
+            _sendMessage();
+          }
+        }
       },
       localeId: 'en_US',
       listenFor: const Duration(seconds: 60),
@@ -166,6 +182,12 @@ class _ConversationScreenState extends State<ConversationScreen>
     _pulseController.stop();
     _pulseController.reset();
     setState(() => _isListening = false);
+    // Fallback: stop sonrası metin varsa ve finalResult gelmezse de gönder
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (_pendingAutoSend && mounted && _messageController.text.trim().isNotEmpty) {
+      _pendingAutoSend = false;
+      _sendMessage();
+    }
   }
 
   Future<void> _speak(String text) async {

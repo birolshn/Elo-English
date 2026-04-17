@@ -44,6 +44,19 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
     _initTts();
   }
 
+  bool _hasSpokenFirstMessage = false;
+
+  /// IELTS sınavı başlayınca ilk mesajı seslendir
+  void _checkAndSpeakFirstMessage(IeltsProvider provider) {
+    if (!_hasSpokenFirstMessage && provider.isExamActive && provider.messages.isNotEmpty) {
+      final firstMsg = provider.messages.first;
+      if (firstMsg.role == 'assistant') {
+        _hasSpokenFirstMessage = true;
+        _speak(firstMsg.content);
+      }
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -51,6 +64,9 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   }
 
   Future<void> _initSpeech() async {
+    // Önceki session'ı temizle (conversation screen'den kalma olabilir)
+    await _speech.cancel();
+    
     _speechEnabled = await _speech.initialize(
       onStatus: (status) {
         debugPrint('🎤 IELTS Speech status: $status');
@@ -58,13 +74,6 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
           _pulseController.stop();
           _pulseController.reset();
           setState(() => _isListening = false);
-          // Kullanıcı mikrofonu manuel kapattıysa mesajı otomatik gönder
-          if (_pendingAutoSend) {
-            _pendingAutoSend = false;
-            if (_messageController.text.trim().isNotEmpty) {
-              _sendMessage();
-            }
-          }
         } else if (status == 'listening' && mounted) {
           _pulseController.repeat(reverse: true);
         }
@@ -78,6 +87,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
         }
       },
     );
+    debugPrint('🎤 IELTS Speech initialized: $_speechEnabled');
     if (mounted) setState(() {});
   }
 
@@ -101,13 +111,17 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   }
 
   Future<void> _startListening() async {
-    if (!_speechEnabled) return;
+    if (!_speechEnabled) {
+      debugPrint('❌ IELTS Speech not enabled, trying to reinitialize...');
+      await _initSpeech();
+      if (!_speechEnabled) return;
+    }
 
     final existingText = _messageController.text.trim();
 
-    // Önce dinlemeyi başlat (await yok - gecikmeyi önler)
     _speech.listen(
       onResult: (result) {
+        debugPrint('🎤 IELTS Recognized: ${result.recognizedWords} (final: ${result.finalResult})');
         setState(() {
           if (existingText.isNotEmpty) {
             _messageController.text = '$existingText ${result.recognizedWords}';
@@ -115,6 +129,13 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
             _messageController.text = result.recognizedWords;
           }
         });
+        // Auto-send: finalResult geldiğinde ve pendingAutoSend true ise gönder
+        if (result.finalResult && _pendingAutoSend && mounted) {
+          _pendingAutoSend = false;
+          if (_messageController.text.trim().isNotEmpty) {
+            _sendMessage();
+          }
+        }
       },
       localeId: 'en_US',
       listenFor: const Duration(seconds: 60),
@@ -122,7 +143,6 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
       listenMode: stt.ListenMode.dictation,
     );
 
-    // Sonra UI'yı güncelle
     setState(() => _isListening = true);
   }
 
@@ -132,6 +152,12 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
     _pulseController.stop();
     _pulseController.reset();
     setState(() => _isListening = false);
+    // Fallback: stop sonrası metin varsa ve finalResult gelmezse de gönder
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (_pendingAutoSend && mounted && _messageController.text.trim().isNotEmpty) {
+      _pendingAutoSend = false;
+      _sendMessage();
+    }
   }
 
   Future<void> _speak(String text) async {
@@ -167,6 +193,9 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   Widget build(BuildContext context) {
     final ieltsProvider = context.watch<IeltsProvider>();
     final primaryColor = Theme.of(context).colorScheme.primary;
+
+    // İlk mesajı otomatik seslendir
+    _checkAndSpeakFirstMessage(ieltsProvider);
 
     // Sınav aktif değilse başlangıç ekranı göster
     if (!ieltsProvider.isExamActive &&
