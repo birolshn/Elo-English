@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
 
@@ -10,10 +11,14 @@ class ApiService {
   static String get baseUrl {
     // Release veya Profile modda (gerçek cihaz testi) production URL'i zorla
     // Çünkü profile modda simülatör değil gerçek cihaz kullanıyoruz ve localhost'a erişemeyiz.
-    const isProduction = bool.fromEnvironment('dart.vm.product') || 
-                         bool.fromEnvironment('dart.vm.profile');
-    
-    if (isProduction || !Platform.isIOS && !Platform.isAndroid) {
+    // kReleaseMode ve kProfileMode Flutter foundation'dan geliyor ve doğru çalışıyor.
+    if (kReleaseMode || kProfileMode) {
+      debugPrint('🌐 Using production URL: $_productionUrl');
+      return _productionUrl;
+    }
+
+    // Desktop (macOS vb.) da production URL kullan
+    if (!Platform.isIOS && !Platform.isAndroid) {
       return _productionUrl;
     }
 

@@ -187,8 +187,33 @@ async def root():
     return {
         "message": "Language Learning API is running",
         "version": "2.2.0 - Stateless Edition",
-        "endpoints": ["/scenarios", "/conversation", "/speech-to-text"]
+        "endpoints": ["/scenarios", "/conversation", "/speech-to-text", "/health"]
     }
+
+@app.get("/health")
+async def health_check():
+    """Gemini API bağlantısını test eder"""
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    result = {
+        "api_key_present": bool(gemini_key),
+        "api_key_prefix": gemini_key[:10] + "..." if gemini_key else None,
+    }
+    
+    if gemini_key:
+        try:
+            genai.configure(api_key=gemini_key)
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            response = model.generate_content("Say hello in one word")
+            result["gemini_status"] = "working"
+            result["gemini_response"] = response.text[:100]
+        except Exception as e:
+            result["gemini_status"] = "error"
+            result["gemini_error_type"] = type(e).__name__
+            result["gemini_error"] = str(e)[:300]
+    else:
+        result["gemini_status"] = "no_api_key"
+    
+    return result
 
 @app.get("/scenarios", response_model=List[ScenarioInfo])
 async def get_scenarios():
@@ -250,9 +275,13 @@ Response format:
             response = model.generate_content(prompt)
             ai_response_raw = response.text
         except Exception as gemini_error:
-            # Gemini hatası varsa basit bir cevap döndür
-            print(f"Gemini Error: {gemini_error}")
-            ai_response_raw = "Hello! I'm here to help you practice English. Could you please try again?"
+            # Gemini hatası detaylarını logla
+            import traceback
+            print(f"❌ Gemini Error Type: {type(gemini_error).__name__}")
+            print(f"❌ Gemini Error: {gemini_error}")
+            traceback.print_exc()
+            # Hata detayını da döndür (debug amaçlı)
+            ai_response_raw = f"I'm having a temporary issue. Error: {type(gemini_error).__name__}: {str(gemini_error)[:200]}"
 
         # Feedback'i ayrıştır
         feedback_data = {

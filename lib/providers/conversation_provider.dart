@@ -192,6 +192,8 @@ class ConversationProvider with ChangeNotifier {
       );
     } catch (e) {
       _error = e.toString();
+      debugPrint('❌ Conversation API error: $e');
+      debugPrint('🌐 Base URL: ${ApiService.baseUrl}');
       _addMessage(
         ConversationMessage(
           role: 'assistant',
