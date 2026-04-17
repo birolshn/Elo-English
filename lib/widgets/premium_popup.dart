@@ -201,7 +201,7 @@ class _PremiumPopupState extends State<PremiumPopup> {
                       onPressed: premiumProvider.isLoading
                           ? null
                           : () async {
-                              final success = await premiumProvider.showPaywall();
+                              final success = await premiumProvider.purchaseSelectedPlan(_selectedPlan);
                               if (success && mounted) {
                                 widget.onPurchaseSuccess?.call();
                                 Navigator.of(context).pop();
@@ -231,9 +231,9 @@ class _PremiumPopupState extends State<PremiumPopup> {
                                 valueColor: AlwaysStoppedAnimation(Colors.white),
                               ),
                             )
-                          : const Text(
-                              'Get Premium',
-                              style: TextStyle(
+                          : Text(
+                              'Get Premium - ${_getSelectedPlanPrice(premiumProvider)}',
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -379,6 +379,21 @@ class _PremiumPopupState extends State<PremiumPopup> {
         ),
       ),
     );
+  }
+
+  String _getSelectedPlanPrice(PremiumProvider premiumProvider) {
+    switch (_selectedPlan) {
+      case 'monthly':
+        return premiumProvider.monthlyPrice;
+      case '3month':
+        return premiumProvider.threeMonthPrice;
+      case '6month':
+        return premiumProvider.sixMonthPrice;
+      case 'yearly':
+        return premiumProvider.yearlyPrice;
+      default:
+        return premiumProvider.yearlyPrice;
+    }
   }
 }
 

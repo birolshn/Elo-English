@@ -84,6 +84,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 FirebaseAuth.instance.currentUser?.displayName?.split(' ').first != null && FirebaseAuth.instance.currentUser!.displayName!.isNotEmpty
                                     ? 'Welcome, ${FirebaseAuth.instance.currentUser!.displayName!.split(' ').first}'
                                     : 'Welcome',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 28,
                                   fontWeight: FontWeight.bold,

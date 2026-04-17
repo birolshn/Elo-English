@@ -81,6 +81,76 @@ class PremiumProvider with ChangeNotifier {
     }
   }
 
+  /// Seçilen planı doğrudan satın al (paywall göstermeden)
+  Future<bool> purchaseSelectedPlan(String planId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // RevenueCat'ten mevcut ürünleri al
+      final offerings = await Purchases.getOfferings();
+      final currentOffering = offerings.current;
+
+      if (currentOffering == null) {
+        debugPrint('❌ No current offering found');
+        _isLoading = false;
+        notifyListeners();
+        return false;
+      }
+
+      // planId'ye göre doğru paketi bul
+      Package? targetPackage;
+      
+      // Önce package type ile eşleştir
+      switch (planId) {
+        case 'monthly':
+          targetPackage = currentOffering.monthly;
+          break;
+        case '3month':
+          targetPackage = currentOffering.threeMonth;
+          break;
+        case '6month':
+          targetPackage = currentOffering.sixMonth;
+          break;
+        case 'yearly':
+          targetPackage = currentOffering.annual;
+          break;
+      }
+
+      // Package type ile bulunamadıysa, identifier ile ara
+      if (targetPackage == null) {
+        for (final pkg in currentOffering.availablePackages) {
+          if (pkg.identifier.contains(planId)) {
+            targetPackage = pkg;
+            break;
+          }
+        }
+      }
+
+      if (targetPackage == null) {
+        debugPrint('❌ Package not found for plan: $planId');
+        debugPrint('Available packages: ${currentOffering.availablePackages.map((p) => p.identifier).toList()}');
+        _isLoading = false;
+        notifyListeners();
+        // Fallback: paywall göster
+        return showPaywall();
+      }
+
+      debugPrint('✅ Purchasing package: ${targetPackage.identifier}');
+      final purchaseResult = await Purchases.purchase(PurchaseParams.package(targetPackage));
+      _updatePremiumFromCustomerInfo(purchaseResult.customerInfo);
+
+      _isLoading = false;
+      notifyListeners();
+      return _isPremium;
+    } catch (e) {
+      debugPrint('❌ Purchase error: $e');
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Satın alma işlemini geri yükle
   Future<bool> restorePurchases() async {
     _isLoading = true;

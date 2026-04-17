@@ -19,11 +19,11 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
   @override
   void initState() {
     super.initState();
-    // Verileri yenile (silent:true sayesinde önbellekteki veriyi bozmaz)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ScenarioProvider>().loadScenarios(silent: true).catchError((
-        e,
-      ) {
+      final provider = context.read<ScenarioProvider>();
+      // Cache boşsa loading göster, doluysa arka planda sessizce yükle
+      final silent = provider.scenarios.isNotEmpty;
+      provider.loadScenarios(silent: silent).catchError((e) {
         debugPrint('Error loading scenarios: $e');
       });
     });
@@ -156,7 +156,30 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                 builder: (context, scenarioProvider, _) {
                   if (scenarioProvider.isLoading &&
                       scenarioProvider.scenarios.isEmpty) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Loading scenarios...',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'This may take a moment',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   }
 
                   if (scenarioProvider.error != null &&
@@ -182,13 +205,27 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                     );
                   }
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: scenarioProvider.scenarios.length,
-                    itemBuilder: (context, index) {
-                      final scenario = scenarioProvider.scenarios[index];
-                      return _buildScenarioCard(context, scenario);
-                    },
+                  return Stack(
+                    children: [
+                      ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: scenarioProvider.scenarios.length,
+                        itemBuilder: (context, index) {
+                          final scenario = scenarioProvider.scenarios[index];
+                          return _buildScenarioCard(context, scenario);
+                        },
+                      ),
+                      // Cache'den veri gösterirken arka planda yükleniyorsa üstte ince loading bar
+                      if (scenarioProvider.isLoading)
+                        const Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          child: LinearProgressIndicator(
+                            minHeight: 3,
+                          ),
+                        ),
+                    ],
                   );
                 },
               ),
