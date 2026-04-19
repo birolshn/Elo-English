@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -60,7 +62,7 @@ class AccountScreen extends StatelessWidget {
                         icon: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -80,25 +82,10 @@ class AccountScreen extends StatelessWidget {
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Colors.white.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                             ),
-                            child: CircleAvatar(
-                              radius: 40,
-                              backgroundColor: Colors.white,
-                              backgroundImage:
-                                  user?.photoURL != null
-                                      ? NetworkImage(user!.photoURL!)
-                                      : null,
-                              child:
-                                  user?.photoURL == null
-                                      ? Icon(
-                                        Icons.person_rounded,
-                                        size: 40,
-                                        color: primaryColor,
-                                      )
-                                      : null,
-                            ),
+                            child: _buildAvatar(context, user?.photoURL, radius: 40),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -126,10 +113,10 @@ class AccountScreen extends StatelessWidget {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.25),
+                                  color: Colors.white.withValues(alpha: 0.25),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: Colors.white.withOpacity(0.4),
+                                    color: Colors.white.withValues(alpha: 0.4),
                                     width: 1,
                                   ),
                                 ),
@@ -162,7 +149,7 @@ class AccountScreen extends StatelessWidget {
                           user?.email ?? '',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -173,10 +160,9 @@ class AccountScreen extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color:
-                                authProvider.isEmailVerified
-                                    ? Colors.green.withOpacity(0.3)
-                                    : Colors.orange.withOpacity(0.3),
+                            color: authProvider.isEmailVerified
+                                    ? Colors.green.withValues(alpha: 0.3)
+                                    : Colors.orange.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -258,9 +244,9 @@ class AccountScreen extends StatelessWidget {
                     // Premium Membership Card
                     _buildPremiumCard(context),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
 
-                    // Privacy Policy Button
+                    // Restore Purchases (Apple requirement)
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -268,7 +254,65 @@ class AccountScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.restore_rounded,
+                          color: Color(0xFF64748B),
+                        ),
+                        title: const Text(
+                          'Restore Purchases',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Color(0xFF1E293B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.arrow_forward_ios,
+                          size: 16,
+                          color: Color(0xFFCBD5E1),
+                        ),
+                        onTap: () async {
+                          final premiumProvider =
+                              context.read<PremiumProvider>();
+                          final restored =
+                              await premiumProvider.restorePurchases();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  restored
+                                      ? '✅ Purchases restored successfully!'
+                                      : 'No previous purchases found.',
+                                ),
+                                backgroundColor: restored
+                                    ? Colors.green
+                                    : const Color(0xFF64748B),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Privacy Policy Button
+
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -388,8 +432,8 @@ class AccountScreen extends StatelessWidget {
           BoxShadow(
             color:
                 isPremium
-                    ? const Color(0xFF9333EA).withOpacity(0.3)
-                    : Colors.black.withOpacity(0.04),
+                    ? const Color(0xFF9333EA).withValues(alpha: 0.3)
+                    : Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -424,7 +468,7 @@ class AccountScreen extends StatelessWidget {
                         fontSize: 13,
                         color:
                             isPremium
-                                ? Colors.white.withOpacity(0.9)
+                                ? Colors.white.withValues(alpha: 0.9)
                                 : const Color(0xFF64748B),
                       ),
                     ),
@@ -438,7 +482,7 @@ class AccountScreen extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -480,12 +524,12 @@ class AccountScreen extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: () => _showCancelSubscriptionDialog(context),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white.withOpacity(0.9),
+                  foregroundColor: Colors.white.withValues(alpha: 0.9),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  side: BorderSide(color: Colors.white.withOpacity(0.5)),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
                 ),
                 child: const Text(
                   'Cancel Subscription',
@@ -511,9 +555,9 @@ class AccountScreen extends StatelessWidget {
                 Text('Cancel Subscription'),
               ],
             ),
-            content: const Text(
-              'To cancel your premium subscription, manage your subscriptions in the iOS Settings app.\n\n'
-              'You can cancel by navigating to Settings → Apple ID → Subscriptions.\n\n'
+            content: Text(
+              'To cancel your premium subscription, manage your subscriptions in the ${!kIsWeb && Platform.isIOS ? 'iOS Settings app' : 'app store settings'}.\n\n'
+              '${!kIsWeb && Platform.isIOS ? 'You can cancel by navigating to Settings → Apple ID → Subscriptions.\n\n' : ''}'
               '• You can continue using your premium benefits until the end of the current period',
             ),
             actions: [
@@ -540,7 +584,7 @@ class AccountScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -773,22 +817,7 @@ class AccountScreen extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.bottomRight,
                     children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.grey.shade200,
-                        backgroundImage:
-                            user?.photoURL != null
-                                ? NetworkImage(user!.photoURL!)
-                                : null,
-                        child:
-                            user?.photoURL == null
-                                ? const Icon(
-                                  Icons.person,
-                                  size: 40,
-                                  color: Colors.grey,
-                                )
-                                : null,
-                      ),
+                      _buildAvatar(context, user?.photoURL, radius: 40),
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(
@@ -860,6 +889,66 @@ class AccountScreen extends StatelessWidget {
               ),
             ],
           ),
+    );
+  }
+
+  String? _getSanitizedUrl(String? url) {
+    if (url == null || url.isEmpty) return null;
+
+    final isLocalUrl = url.contains('localhost') || url.contains('127.0.0.1');
+
+    if (isLocalUrl) {
+      // Eğer local backend kapalıysa, localhost içeren URL'leri hiç deneme bile
+      // (Stale URLs from previous dev sessions)
+      if (!ApiService.useLocalBackend) {
+        debugPrint('🚫 Skipping local URL because local backend is disabled');
+        return null; 
+      }
+
+      // Android emulator için localhost -> 10.0.2.2 dönüşümü
+      if (!kIsWeb && Platform.isAndroid) {
+        final sanitized = url
+            .replaceAll('localhost', '10.0.2.2')
+            .replaceAll('127.0.0.1', '10.0.2.2');
+        debugPrint('🔄 Sanitized Photo URL for Android: $sanitized');
+        return sanitized;
+      }
+    }
+
+    return url;
+  }
+
+  Widget _buildAvatar(BuildContext context, String? photoURL, {required double radius}) {
+    final sanitizedUrl = _getSanitizedUrl(photoURL);
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.white,
+      child: ClipOval(
+        child:
+            sanitizedUrl != null
+                ? Image.network(
+                  sanitizedUrl,
+                  width: radius * 2,
+                  height: radius * 2,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    debugPrint(
+                      '⚠️ Image load error: $error for URL: $sanitizedUrl',
+                    );
+                    return Icon(
+                      Icons.person_rounded,
+                      size: radius,
+                      color: Theme.of(context).colorScheme.primary,
+                    );
+                  },
+                )
+                : Icon(
+                  Icons.person_rounded,
+                  size: radius,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+      ),
     );
   }
 }

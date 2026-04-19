@@ -66,12 +66,19 @@ class ScenarioProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _isLoading = false;
+      final errorMessage = e.toString();
+      debugPrint('❌ Error loading scenarios: $errorMessage');
+      
       // Eğer hiç verimiz yoksa hatayı göster, varsa sessizce başarısız ol (mevcut veriyi koru)
       if (_scenarios.isEmpty) {
-        _error = e.toString();
+        _error = errorMessage;
       }
       notifyListeners();
-      rethrow;
+      
+      // Artık senaryo listesi sayfasında catchError ile yakalandığı için 
+      // burada rethrow yapmaya gerek kalmayabilir veya isteğe bağlı kılınabilir.
+      // Ancak UI tarafında özel bir hata yönetimi istenmiyorsa rethrow'u kaldırabiliriz.
+      // rethrow; // Debugger'ın burada durmasını engellemek için yorum satırına alabiliriz
     }
   }
 }

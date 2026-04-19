@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/premium_provider.dart';
 
 class PremiumPopup extends StatefulWidget {
@@ -240,6 +241,97 @@ class _PremiumPopupState extends State<PremiumPopup> {
                             ),
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  // Restore Purchases button (Apple requirement)
+                  TextButton(
+                    onPressed: premiumProvider.isLoading
+                        ? null
+                        : () async {
+                            final restored = await premiumProvider.restorePurchases();
+                            if (mounted) {
+                              if (restored) {
+                                widget.onPurchaseSuccess?.call();
+                                Navigator.of(context).pop();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('✅ Purchases restored successfully!'),
+                                    backgroundColor: Color(0xFF10B981),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('No previous purchases found.'),
+                                    backgroundColor: Color(0xFF64748B),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 30),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Restore Purchases',
+                      style: TextStyle(
+                        color: Color(0xFF9333EA),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Subscription terms (Apple requirement)
+                  Text(
+                    'Subscription auto-renews unless cancelled at least 24 hours before the end of the current period. '
+                    'Payment is charged to your Apple ID account. '
+                    'Manage or cancel anytime in Settings → Apple ID → Subscriptions.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: Colors.grey.shade500,
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Privacy Policy & Terms of Use links (Apple requirement)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _openUrl('https://birolshn.github.io/Elo-English/privacy_policy.html'),
+                        child: Text(
+                          'Privacy Policy',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          '|',
+                          style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _openUrl('https://birolshn.github.io/Elo-English/terms_of_use.html'),
+                        child: Text(
+                          'Terms of Use',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).pop();
@@ -393,6 +485,13 @@ class _PremiumPopupState extends State<PremiumPopup> {
         return premiumProvider.yearlyPrice;
       default:
         return premiumProvider.yearlyPrice;
+    }
+  }
+
+  void _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 }

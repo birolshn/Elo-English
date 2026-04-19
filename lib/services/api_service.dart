@@ -8,6 +8,9 @@ class ApiService {
   // Production URL - Render.com backend (Gemini AI only, stateless)
   static const String _productionUrl = 'https://elo-english.onrender.com';
 
+  // Development mode control - Set to true if you are running the backend locally
+  static const bool useLocalBackend = false;
+
   static String get baseUrl {
     // Release veya Profile modda (gerçek cihaz testi) production URL'i zorla
     // Çünkü profile modda simülatör değil gerçek cihaz kullanıyoruz ve localhost'a erişemeyiz.
@@ -17,8 +20,8 @@ class ApiService {
       return _productionUrl;
     }
 
-    // Desktop (macOS vb.) da production URL kullan
-    if (!Platform.isIOS && !Platform.isAndroid) {
+    // Yerel backend kapalıysa veya masaüstü modundaysa production kullan
+    if (!useLocalBackend || (!Platform.isIOS && !Platform.isAndroid)) {
       return _productionUrl;
     }
 
