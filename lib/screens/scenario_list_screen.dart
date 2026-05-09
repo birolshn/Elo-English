@@ -246,18 +246,23 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
     }
 
     // Günlük limit kontrolü
-    if (!userProvider.canStartScenario(premiumProvider.isPremium)) {
-      _showDailyLimitDialog(context);
+    final cost = scenario.estimatedTime >= 10 ? 2 : 1;
+    if (!userProvider.canStartScenario(premiumProvider.isPremium, cost)) {
+      _showDailyLimitDialog(context, cost);
       return;
     }
 
     // Senaryo sayısını artır ve konuşmayı başlat
-    userProvider.incrementDailyScenarioCount();
+    userProvider.incrementDailyScenarioCount(cost);
     context.read<ConversationProvider>().setScenario(scenario);
     Navigator.pushNamed(context, '/conversation');
   }
 
-  void _showDailyLimitDialog(BuildContext context) {
+  void _showDailyLimitDialog(BuildContext context, [int cost = 1]) {
+    final message = cost > 1 
+      ? 'This scenario requires $cost credits, but you don\'t have enough.\n\nFree accounts have a limit of 2 credits per day.\nYou can try a shorter scenario, try again tomorrow, or upgrade to premium.'
+      : 'Free accounts have a limit of 2 credits per day.\n\nYou can try again tomorrow or upgrade to premium for unlimited practice.';
+
     showDialog(
       context: context,
       builder:
@@ -296,7 +301,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Free accounts have a limit of 2 scenarios per day.\n\nYou can try again tomorrow or upgrade to premium for unlimited practice.',
+                    message,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   ),

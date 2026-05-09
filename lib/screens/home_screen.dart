@@ -209,6 +209,10 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
+    final goalProgress = userProvider.dailyGoalProgress;
+    final goalMinutes = userProvider.dailyGoalMinutes;
+    final usedMinutes = userProvider.todayUsedMinutes;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -265,63 +269,126 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 20),
           Row(
             children: [
+              // Left: Streak
               Expanded(
-                child: _buildStatItem(
-                  icon: Icons.access_time_rounded,
-                  value: '${userProvider.todayUsedMinutes}',
-                  label: 'minutes',
-                  color: const Color(0xFF3B82F6),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text('🔥', style: TextStyle(fontSize: 22)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${userProvider.currentStreak}',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'day streak',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    ),
+                  ],
                 ),
               ),
-              Container(width: 1, height: 50, color: const Color(0xFFE2E8F0)),
-              Expanded(
-                child: _buildStatItem(
-                  icon: Icons.forum_rounded,
-                  value: '${userProvider.todayConversations}',
-                  label: 'conversations',
-                  color: const Color(0xFF8B5CF6),
+
+              // Center: Circular progress bar for daily goal
+              SizedBox(
+                width: 100,
+                height: 100,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Circular progress
+                    SizedBox(
+                      width: 90,
+                      height: 90,
+                      child: CustomPaint(
+                        painter: _CircularGoalPainter(
+                          progress: goalProgress,
+                          trackColor: const Color(0xFFE2E8F0),
+                          progressStartColor: const Color(0xFF3B82F6),
+                          progressEndColor: const Color(0xFF10B981),
+                          strokeWidth: 8,
+                        ),
+                      ),
+                    ),
+                    // Center text
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$usedMinutes',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        Text(
+                          '/ $goalMinutes min',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Container(width: 1, height: 50, color: const Color(0xFFE2E8F0)),
+
+              // Right: Completed scenarios
               Expanded(
-                child: _buildStatItem(
-                  icon: Icons.check_circle_rounded,
-                  value: '${userProvider.todayCompletedScenarios.length}',
-                  label: 'scenarios',
-                  color: const Color(0xFF10B981),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF10B981),
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${userProvider.todayCompletedScenarios.length}',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'scenarios',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E293B),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-        ),
-      ],
     );
   }
 
@@ -490,5 +557,69 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Custom painter for the circular daily goal progress ring
+class _CircularGoalPainter extends CustomPainter {
+  final double progress; // 0.0 to 1.0
+  final Color trackColor;
+  final Color progressStartColor;
+  final Color progressEndColor;
+  final double strokeWidth;
+
+  _CircularGoalPainter({
+    required this.progress,
+    required this.trackColor,
+    required this.progressStartColor,
+    required this.progressEndColor,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+
+    // Draw track (background circle)
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, trackPaint);
+
+    // Draw progress arc
+    if (progress > 0) {
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      final sweepAngle = 2 * 3.14159265359 * progress;
+
+      final gradient = SweepGradient(
+        startAngle: -3.14159265359 / 2,
+        endAngle: -3.14159265359 / 2 + sweepAngle,
+        colors: [progressStartColor, progressEndColor],
+        stops: const [0.0, 1.0],
+      );
+
+      final progressPaint = Paint()
+        ..shader = gradient.createShader(rect)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round;
+
+      canvas.drawArc(
+        rect,
+        -3.14159265359 / 2, // Start from top
+        sweepAngle,
+        false,
+        progressPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CircularGoalPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

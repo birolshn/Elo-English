@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:flutter_tts/flutter_tts.dart';
+import '../services/tts_service.dart';
 import '../providers/ielts_provider.dart';
 import '../models/models.dart';
 
@@ -18,7 +18,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
-  final FlutterTts _flutterTts = FlutterTts();
+  final TtsService _ttsService = TtsService();
 
   bool _isListening = false;
   bool _speechEnabled = false;
@@ -92,10 +92,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   }
 
   Future<void> _initTts() async {
-    await _flutterTts.setLanguage("en-GB"); // British English for IELTS
-    await _flutterTts.setSpeechRate(0.5);
-    await _flutterTts.setVolume(1.0);
-    await _flutterTts.setPitch(1.0);
+    await _ttsService.initialize(language: 'en-GB'); // British English for IELTS
   }
 
   void _scrollToBottom() {
@@ -161,7 +158,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   }
 
   Future<void> _speak(String text) async {
-    await _flutterTts.speak(text);
+    await _ttsService.speak(text);
   }
 
   Future<void> _sendMessage() async {
@@ -183,7 +180,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
     _messageController.dispose();
     _scrollController.dispose();
     _speech.stop();
-    _flutterTts.stop();
+    _ttsService.stop();
     _pulseController.dispose();
     _ieltsProvider?.stopExam(notify: false);
     super.dispose();

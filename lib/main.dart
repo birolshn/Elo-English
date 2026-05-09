@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'screens/main_tab_screen.dart';
 import 'screens/home_screen.dart';
@@ -12,6 +14,7 @@ import 'screens/scenario_list_screen.dart';
 import 'screens/conversation_screen.dart';
 import 'screens/progress_screen.dart';
 import 'screens/ielts_exam_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/conversation_provider.dart';
@@ -23,6 +26,10 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Çevre değişkenlerini (API Keyler vb.) yükle
+  await dotenv.load(fileName: ".env");
+  
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // RevenueCat'i başlat
@@ -185,6 +192,7 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme(),
         home: const AuthWrapper(),
         routes: {
+          '/onboarding': (context) => const OnboardingScreen(),
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegisterScreen(),
           '/home': (context) => const HomeScreen(),
@@ -199,7 +207,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Wrapper widget that handles authentication state
+/// Wrapper widget that handles authentication state and onboarding
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
 
@@ -208,7 +216,20 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  // No longer using fixed flag to allow updates on status change
+  bool? _onboardingCompleted;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboardingStatus();
+  }
+
+  Future<void> _checkOnboardingStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
+    });
+  }
 
   void _setupNotifications(bool isPremium) async {
     final notificationService = NotificationService();
@@ -217,6 +238,20 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading while checking onboarding status
+    if (_onboardingCompleted == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // Show onboarding if not completed
+    if (!_onboardingCompleted!) {
+      return OnboardingScreen(
+        onComplete: () {
+          _checkOnboardingStatus();
+        },
+      );
+    }
+
     final authProvider = context.watch<AuthProvider>();
 
     // Show loading while checking auth state

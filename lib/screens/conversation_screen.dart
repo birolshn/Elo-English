@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:flutter_tts/flutter_tts.dart';
+import '../services/tts_service.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/conversation_provider.dart';
@@ -23,7 +23,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
-  final FlutterTts _flutterTts = FlutterTts();
+  final TtsService _ttsService = TtsService();
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
 
   bool _isListening = false;
@@ -109,10 +109,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   }
 
   Future<void> _initTts() async {
-    await _flutterTts.setLanguage("en-US");
-    await _flutterTts.setSpeechRate(0.5);
-    await _flutterTts.setVolume(1.0);
-    await _flutterTts.setPitch(1.0);
+    await _ttsService.initialize(language: 'en-US');
   }
 
   Future<void> _initRecorder() async {
@@ -191,7 +188,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   }
 
   Future<void> _speak(String text) async {
-    await _flutterTts.speak(text);
+    await _ttsService.speak(text);
   }
 
   Future<void> _sendMessage() async {
@@ -243,7 +240,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     _messageController.dispose();
     _scrollController.dispose();
     _speech.stop();
-    _flutterTts.stop();
+    _ttsService.stop();
     _pulseController.dispose();
     if (_isRecorderReady) {
       _recorder.closeRecorder();

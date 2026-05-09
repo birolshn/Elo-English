@@ -91,13 +91,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   bottomRight: Radius.circular(32),
                 ),
               ),
-              child: Row(
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                  ),
-                  const Expanded(
+                  const Align(
+                    alignment: Alignment.center,
                     child: Text(
                       'Your Progress',
                       style: TextStyle(
@@ -107,33 +105,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
                       ),
                     ),
                   ),
-                  // Premium badge
-                  if (premiumProvider.isPremium)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.amber,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.star, color: Colors.white, size: 16),
-                          SizedBox(width: 4),
-                          Text(
-                            'Premium',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),

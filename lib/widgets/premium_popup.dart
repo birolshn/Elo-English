@@ -147,14 +147,14 @@ class _PremiumPopupState extends State<PremiumPopup> {
                           Row(
                             children: [
                               _buildPlanOption(
-                                title: '1 Month',
+                                title: 'Premium 1 Month',
                                 price: premiumProvider.monthlyPrice,
                                 subtitle: 'Flexible',
                                 planId: 'monthly',
                               ),
                               const SizedBox(width: 12),
                               _buildPlanOption(
-                                title: '3 Months',
+                                title: 'Premium 3 Months',
                                 price: premiumProvider.threeMonthPrice,
                                 subtitle: 'Popular',
                                 planId: '3month',
@@ -166,14 +166,14 @@ class _PremiumPopupState extends State<PremiumPopup> {
                           Row(
                             children: [
                               _buildPlanOption(
-                                title: '6 Months',
+                                title: 'Premium 6 Months',
                                 price: premiumProvider.sixMonthPrice,
                                 subtitle: 'Advantageous',
                                 planId: '6month',
                               ),
                               const SizedBox(width: 12),
                               _buildPlanOption(
-                                title: '12 Months',
+                                title: 'Premium 12 Months',
                                 price: premiumProvider.yearlyPrice,
                                 subtitle: '${premiumProvider.yearlyMonthlyEquivalent}/month',
                                 planId: 'yearly',
@@ -285,9 +285,7 @@ class _PremiumPopupState extends State<PremiumPopup> {
                   const SizedBox(height: 8),
                   // Subscription terms (Apple requirement)
                   Text(
-                    'Subscription auto-renews unless cancelled at least 24 hours before the end of the current period. '
-                    'Payment is charged to your Apple ID account. '
-                    'Manage or cancel anytime in Settings → Apple ID → Subscriptions.',
+                    'A payment will be charged to your iTunes Account at confirmation of purchase. The subscription automatically renews unless auto-renew is turned off at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage or cancel your subscription anytime in your Apple ID Account Settings.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 9,
@@ -305,8 +303,8 @@ class _PremiumPopupState extends State<PremiumPopup> {
                         child: Text(
                           'Privacy Policy',
                           style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade600,
+                            fontSize: 11,
+                            color: Colors.blue.shade700,
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -315,16 +313,16 @@ class _PremiumPopupState extends State<PremiumPopup> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Text(
                           '|',
-                          style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
                         ),
                       ),
                       GestureDetector(
                         onTap: () => _openUrl('https://birolshn.github.io/Elo-English/terms_of_use.html'),
                         child: Text(
-                          'Terms of Use',
+                          'Terms of Use (EULA)',
                           style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade600,
+                            fontSize: 11,
+                            color: Colors.blue.shade700,
                             decoration: TextDecoration.underline,
                           ),
                         ),

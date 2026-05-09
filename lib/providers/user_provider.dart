@@ -30,6 +30,10 @@ class UserProvider with ChangeNotifier {
   List<String> _todayCompletedScenarios = [];
   int _todayScenariosStarted = 0; // Günlük başlatılan senaryo sayısı
 
+  // Streak & Daily Goal
+  int _currentStreak = 0;
+  int _dailyGoalMinutes = 10; // default 10 min
+
   // Günlük senaryo limiti (ücretsiz kullanıcılar için)
   static const int dailyScenarioLimit = 2;
 
@@ -47,6 +51,11 @@ class UserProvider with ChangeNotifier {
   List<Achievement> get pendingAchievements => _pendingAchievements;
   bool get showLeaderboardEntryPopup => _showLeaderboardEntryPopup;
   bool get showLeaderboardDropNotification => _showLeaderboardDropNotification;
+  int get currentStreak => _currentStreak;
+  int get dailyGoalMinutes => _dailyGoalMinutes;
+  double get dailyGoalProgress => _dailyGoalMinutes > 0
+      ? (_todayUsedMinutes / _dailyGoalMinutes).clamp(0.0, 1.0)
+      : 0.0;
 
   void clearPendingAchievements() {
     _pendingAchievements = [];
@@ -83,9 +92,9 @@ class UserProvider with ChangeNotifier {
   }
 
   /// Premium olmayan kullanıcılar için günlük senaryo limiti kontrolü
-  bool canStartScenario(bool isPremium) {
+  bool canStartScenario(bool isPremium, [int cost = 1]) {
     if (isPremium) return true;
-    return _todayScenariosStarted < dailyScenarioLimit;
+    return _todayScenariosStarted + cost <= dailyScenarioLimit;
   }
 
   Future<void> loadProgress() async {
@@ -96,6 +105,8 @@ class UserProvider with ChangeNotifier {
       // 1. Önce lokal verileri yükle (hızlı gösterim için)
       await _loadPersistentStats();
       await _loadUsageStats();
+      await _loadDailyGoal();
+      await _calculateStreak();
 
       // 2. Firestore'dan güncel verileri çek ve senkronize et
       try {
@@ -177,7 +188,8 @@ class UserProvider with ChangeNotifier {
       'weekly_xp': 0,
       'current_level': _progress?.currentLevel ?? 'beginner',
       'completed_scenarios': _progress?.completedScenarios ?? [],
-      'display_name': _authUser?.displayName ?? 'User',
+      'display_name': _authUser?.displayName ?? (_authUser?.email != null ? _authUser!.email!.split('@')[0] : 'User'),
+      'email': _authUser?.email, // Added email to firestore for future fallback
       'last_active': FieldValue.serverTimestamp(),
       'created_at': FieldValue.serverTimestamp(),
     });
@@ -201,7 +213,7 @@ class UserProvider with ChangeNotifier {
         final entry = LeaderboardEntry(
           rank: i + 1,
           userId: snapshot.docs[i].id,
-          displayName: data['display_name'] ?? 'User',
+          displayName: data['display_name'] ?? data['name'] ?? data['username'] ?? (data['email'] != null ? data['email'].split('@')[0] : null) ?? 'User',
           weeklyXp: data['weekly_xp'] ?? 0,
           avatarUrl: data['avatar_url'],
         );
@@ -289,12 +301,12 @@ class UserProvider with ChangeNotifier {
     }
   }
 
-  Future<void> incrementDailyScenarioCount() async {
+  Future<void> incrementDailyScenarioCount([int cost = 1]) async {
     final prefs = await SharedPreferences.getInstance();
     final today = DateTime.now();
     final todayKey = '${today.year}-${today.month}-${today.day}';
 
-    _todayScenariosStarted += 1;
+    _todayScenariosStarted += cost;
     await prefs.setInt('scenarios_started_$todayKey', _todayScenariosStarted);
     notifyListeners();
   }
@@ -316,6 +328,9 @@ class UserProvider with ChangeNotifier {
 
     await prefs.setInt('total_time_minutes', _progress!.totalTimeMinutes);
     await _loadUsageStats();
+
+    // Recalculate streak after usage update
+    await _calculateStreak();
 
     notifyListeners();
   }
@@ -365,7 +380,7 @@ class UserProvider with ChangeNotifier {
         'completed_scenarios': newCompletedScenarios,
         'current_level': _progress!.currentLevel,
         'weekly_xp': FieldValue.increment(xpEarned),
-        'display_name': _authUser?.displayName ?? 'User',
+        'display_name': _authUser?.displayName ?? (_authUser?.email != null ? _authUser!.email!.split('@')[0] : 'User'),
         'last_active': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
@@ -527,6 +542,43 @@ class UserProvider with ChangeNotifier {
   Future<String> getLevel() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('user_level') ?? 'beginner';
+  }
+
+  /// Load daily goal from SharedPreferences (set during onboarding)
+  Future<void> _loadDailyGoal() async {
+    final prefs = await SharedPreferences.getInstance();
+    _dailyGoalMinutes = prefs.getInt('daily_goal_minutes') ?? 10;
+  }
+
+  /// Calculate the current streak (consecutive days with practice)
+  Future<void> _calculateStreak() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now();
+    int streak = 0;
+
+    for (int i = 0; i < 365; i++) {
+      final date = today.subtract(Duration(days: i));
+      final key = '${date.year}-${date.month}-${date.day}';
+      final minutes = prefs.getInt('usage_$key') ?? 0;
+
+      if (minutes > 0) {
+        streak++;
+      } else {
+        // For today, if no usage yet, don't break the streak — skip to yesterday
+        if (i == 0) continue;
+        break;
+      }
+    }
+
+    _currentStreak = streak;
+  }
+
+  /// Update daily goal (can be changed from settings)
+  Future<void> updateDailyGoal(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('daily_goal_minutes', minutes);
+    _dailyGoalMinutes = minutes;
+    notifyListeners();
   }
 
   Future<Map<String, int>> getWeeklyUsageData() async {
