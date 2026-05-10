@@ -37,6 +37,8 @@ class UserProvider with ChangeNotifier {
   // Günlük senaryo limiti (ücretsiz kullanıcılar için)
   static const int dailyScenarioLimit = 2;
 
+  String _baseLevel = 'beginner';
+
   UserProgress? get progress => _progress;
   String get userId => _authUser?.uid ?? _userId;
   bool get isLoading => _isLoading;
@@ -270,7 +272,9 @@ class UserProvider with ChangeNotifier {
     final totalConversations = prefs.getInt('total_conversations') ?? 0;
     final totalTimeMinutes = prefs.getInt('total_time_minutes') ?? 0;
     final completedScenarios = prefs.getStringList('completed_scenarios') ?? [];
-    final currentLevel = prefs.getString('current_level') ?? 'beginner';
+    
+    _baseLevel = prefs.getString('user_level')?.toLowerCase() ?? 'beginner';
+    final currentLevel = prefs.getString('current_level') ?? _baseLevel;
 
     _progress = UserProgress(
       userId: userId,
@@ -436,13 +440,14 @@ class UserProvider with ChangeNotifier {
   void _updateLevel() {
     if (_progress == null) return;
 
-    String newLevel = 'beginner';
+    final levels = ['beginner', 'intermediate', 'advanced'];
+    int baseIndex = levels.indexOf(_baseLevel);
+    if (baseIndex == -1) baseIndex = 0;
 
-    if (_progress!.totalConversations >= 50) {
-      newLevel = 'advanced';
-    } else if (_progress!.totalConversations >= 20) {
-      newLevel = 'intermediate';
-    }
+    int increment = _progress!.totalConversations ~/ 60;
+    int currentLevelIndex = (baseIndex + increment).clamp(0, levels.length - 1);
+
+    String newLevel = levels[currentLevelIndex];
 
     if (_progress!.currentLevel != newLevel) {
       _progress = _progress!.copyWith(currentLevel: newLevel);

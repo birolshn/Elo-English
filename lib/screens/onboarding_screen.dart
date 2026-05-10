@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../models/models.dart';
+import '../providers/conversation_provider.dart';
 
 /// Data model for a goal option
 class GoalOption {
@@ -132,7 +135,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _goToNextPage() {
-    if (_currentPage < 3) {
+    if (_currentPage < 4) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOutCubic,
@@ -156,7 +159,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       await prefs.setString('user_goal', _selectedGoal!);
     }
     if (_selectedLevel != null) {
-      await prefs.setString('user_level', _selectedLevel!);
+      await prefs.setString('user_level', _selectedLevel!.toLowerCase());
     }
     if (_selectedDailyGoal != null) {
       await prefs.setInt('daily_goal_minutes', _selectedDailyGoal!);
@@ -221,6 +224,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         _buildGoalPage(),
                         _buildLevelPage(),
                         _buildDailyGoalPage(),
+                        _buildTrialStartPage(),
                       ],
                     ),
                   ),
@@ -258,6 +262,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           const Color(0xFF064E3B),
           const Color(0xFF047857),
           const Color(0xFF10B981),
+        ];
+      case 4:
+        return [
+          const Color(0xFF4C1D95),
+          const Color(0xFF6D28D9),
+          const Color(0xFF8B5CF6),
         ];
       default:
         return [
@@ -341,7 +351,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
           // Page indicator dots
           Row(
-            children: List.generate(4, (index) {
+            children: List.generate(5, (index) {
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -361,10 +371,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
           // Skip button (hidden on last page)
           AnimatedOpacity(
-            opacity: _currentPage < 3 ? 1.0 : 0.0,
+            opacity: _currentPage < 4 ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 300),
             child: GestureDetector(
-              onTap: _currentPage < 3 ? () => _completeOnboarding() : null,
+              onTap: _currentPage < 4 ? () => _completeOnboarding() : null,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
@@ -733,9 +743,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
               // Get Started button
               _buildPrimaryButton(
-                label: 'Get Started',
-                onTap: _selectedDailyGoal != null ? _completeOnboarding : null,
-                icon: Icons.rocket_launch_rounded,
+                label: 'Continue',
+                onTap: _selectedDailyGoal != null ? _goToNextPage : null,
+                icon: Icons.arrow_forward_rounded,
               ),
 
               const SizedBox(height: 40),
@@ -744,6 +754,100 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         ),
       ),
     );
+  }
+
+  // ─── SCREEN 5: Trial Start ───────────────────────────────────────────
+
+  Widget _buildTrialStartPage() {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Spacer(flex: 1),
+              Center(
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Text('🎤', style: TextStyle(fontSize: 40)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Ready for a Quick Trial?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1.2,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Experience our AI English Partner in a 2-minute session using natural voices.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.white.withOpacity(0.6),
+                ),
+              ),
+              const Spacer(flex: 2),
+              _buildPrimaryButton(
+                label: 'Start Trial',
+                onTap: _startTrialScenario,
+                icon: Icons.play_arrow_rounded,
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _completeOnboarding,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Skip for now',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _startTrialScenario() {
+    final provider = Provider.of<ConversationProvider>(context, listen: false);
+    provider.setScenario(
+      Scenario(
+        id: 'small_talk',
+        title: 'Quick Trial',
+        description: 'A 2-minute trial conversation',
+        difficulty: (_selectedLevel ?? 'beginner').toLowerCase(),
+        estimatedTime: 2,
+      ),
+    );
+    Navigator.pushNamed(context, '/conversation').then((_) {
+      _completeOnboarding();
+    });
   }
 
   Widget _buildDailyGoalCard(Map<String, dynamic> option, bool isSelected) {

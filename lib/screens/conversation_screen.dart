@@ -5,11 +5,12 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/tts_service.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../providers/conversation_provider.dart';
 import '../providers/premium_provider.dart';
 import '../providers/user_provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/models.dart';
 import '../widgets/premium_popup.dart';
+import '../providers/conversation_provider.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({super.key});
@@ -212,6 +213,68 @@ class _ConversationScreenState extends State<ConversationScreen>
     final isPremium = context.read<PremiumProvider>().isPremium;
     final conversationProvider = context.read<ConversationProvider>();
     final userProvider = context.read<UserProvider>();
+    final authProvider = context.read<AuthProvider>();
+
+    if (!authProvider.isAuthenticated) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 350),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🎉', style: TextStyle(fontSize: 56)),
+                const SizedBox(height: 16),
+                const Text(
+                  'Trial Completed!',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'You did a great job! Now let\'s create your account to continue practicing.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      conversationProvider.clearConversation();
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('Create Account', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    }
 
     showConversationCompletedDialog(
       context,
@@ -230,7 +293,9 @@ class _ConversationScreenState extends State<ConversationScreen>
           );
         }
         conversationProvider.clearConversation();
-        Navigator.of(context).pop();
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
       },
     );
   }

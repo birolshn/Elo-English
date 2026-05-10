@@ -13,6 +13,13 @@ class PremiumProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get subscriptionType => _subscriptionType;
 
+  // Dynamic Prices
+  String _monthlyPrice = '';
+  String _threeMonthPrice = '';
+  String _sixMonthPrice = '';
+  String _yearlyPrice = '';
+  String _yearlyMonthlyEquivalent = '';
+
   PremiumProvider() {
     _initialize();
   }
@@ -22,6 +29,7 @@ class PremiumProvider with ChangeNotifier {
     notifyListeners();
 
     await checkPremiumStatus();
+    await _fetchOfferings();
 
     _isLoading = false;
     notifyListeners();
@@ -39,6 +47,43 @@ class PremiumProvider with ChangeNotifier {
       _isPremium = false;
     }
     notifyListeners();
+  }
+
+  /// RevenueCat'ten mevcut fiyatları çek
+  Future<void> _fetchOfferings() async {
+    try {
+      final offerings = await Purchases.getOfferings();
+      final current = offerings.current;
+      if (current != null) {
+        _monthlyPrice = current.monthly?.storeProduct.priceString ?? '';
+        _threeMonthPrice = current.threeMonth?.storeProduct.priceString ?? '';
+        _sixMonthPrice = current.sixMonth?.storeProduct.priceString ?? '';
+        _yearlyPrice = current.annual?.storeProduct.priceString ?? '';
+        
+        debugPrint('Dynamic Prices Fetched:');
+        debugPrint('Monthly: $_monthlyPrice');
+        debugPrint('Yearly: $_yearlyPrice');
+
+        // Yıllık paketin aylık karşılığını hesapla
+        if (current.annual != null) {
+          final annualProduct = current.annual!.storeProduct;
+          final monthlyEquivalent = annualProduct.price / 12;
+
+          // Basit formatlama (Para birimi simgesi + rakam)
+          final symbol = _extractCurrencySymbol(annualProduct.priceString);
+          _yearlyMonthlyEquivalent =
+              symbol + monthlyEquivalent.toStringAsFixed(2);
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Fiyat çekme hatası: $e');
+    }
+  }
+
+  String _extractCurrencySymbol(String priceString) {
+    // Fiyat metninden rakam olmayan baş/son karakterleri al
+    return priceString.replaceAll(RegExp(r'[0-9.,\s]'), '');
   }
 
   void _updatePremiumFromCustomerInfo(CustomerInfo customerInfo) {
@@ -67,7 +112,9 @@ class PremiumProvider with ChangeNotifier {
   /// RevenueCat paywall'ını göster
   Future<bool> showPaywall() async {
     try {
-      final paywallResult = await RevenueCatUI.presentPaywallIfNeeded('premium');
+      final paywallResult = await RevenueCatUI.presentPaywallIfNeeded(
+        'premium',
+      );
 
       if (paywallResult == PaywallResult.purchased ||
           paywallResult == PaywallResult.restored) {
@@ -100,7 +147,7 @@ class PremiumProvider with ChangeNotifier {
 
       // planId'ye göre doğru paketi bul
       Package? targetPackage;
-      
+
       // Önce package type ile eşleştir
       switch (planId) {
         case 'monthly':
@@ -129,7 +176,9 @@ class PremiumProvider with ChangeNotifier {
 
       if (targetPackage == null) {
         debugPrint('❌ Package not found for plan: $planId');
-        debugPrint('Available packages: ${currentOffering.availablePackages.map((p) => p.identifier).toList()}');
+        debugPrint(
+          'Available packages: ${currentOffering.availablePackages.map((p) => p.identifier).toList()}',
+        );
         _isLoading = false;
         notifyListeners();
         // Fallback: paywall göster
@@ -137,7 +186,9 @@ class PremiumProvider with ChangeNotifier {
       }
 
       debugPrint('✅ Purchasing package: ${targetPackage.identifier}');
-      final purchaseResult = await Purchases.purchase(PurchaseParams.package(targetPackage));
+      final purchaseResult = await Purchases.purchase(
+        PurchaseParams.package(targetPackage),
+      );
       _updatePremiumFromCustomerInfo(purchaseResult.customerInfo);
 
       _isLoading = false;
@@ -175,18 +226,31 @@ class PremiumProvider with ChangeNotifier {
 
   bool get _isTR => _detectTurkishUser();
 
-  String get monthlyPrice => _isTR ? '129 TL' : '\$5.99';
-  String get threeMonthPrice => _isTR ? '299 TL' : '\$14.99';
-  String get sixMonthPrice => _isTR ? '499 TL' : '\$24.99';
-  String get yearlyPrice => _isTR ? '799 TL' : '\$39.99';
+  String get monthlyPrice =>
+      _monthlyPrice.isNotEmpty ? _monthlyPrice : (_isTR ? '149 TL' : '\$6.99');
+  String get threeMonthPrice =>
+      _threeMonthPrice.isNotEmpty
+          ? _threeMonthPrice
+          : (_isTR ? '389 TL' : '\$17.99');
+  String get sixMonthPrice =>
+      _sixMonthPrice.isNotEmpty
+          ? _sixMonthPrice
+          : (_isTR ? '699 TL' : '\$32.99');
+  String get yearlyPrice =>
+      _yearlyPrice.isNotEmpty ? _yearlyPrice : (_isTR ? '1199 TL' : '\$54.99');
 
   // Yıllık paketin aylık karşılığı (reklam için)
-  String get yearlyMonthlyEquivalent => _isTR ? '66 TL' : '\$3.33';
+  String get yearlyMonthlyEquivalent =>
+      _yearlyMonthlyEquivalent.isNotEmpty
+          ? _yearlyMonthlyEquivalent
+          : (_isTR ? '99 TL' : '\$4.58');
 
   bool _detectTurkishUser() {
     try {
       final locale = Platform.localeName;
-      return locale.toLowerCase().contains('tr');
+      debugPrint('Detecting locale: $locale');
+      return locale.toLowerCase().contains('tr') || 
+             locale.toLowerCase().contains('tur');
     } catch (e) {
       return false;
     }

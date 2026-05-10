@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Centralized TTS service supporting both Google Cloud TTS and native device TTS.
 class TtsService {
@@ -90,11 +91,12 @@ class TtsService {
         'https://texttospeech.googleapis.com/v1/text:synthesize?key=$_googleApiKey',
       );
 
-      // Dil koduna göre Google'ın premium "Journey" (Duygulu) ses modelini seç
+      // Seslerin daha hızlı gelmesi için Neural2 kullanıyoruz. 
+      // H ve B varyasyonları daha doğal tonlamalara sahiptir.
       String voiceName =
           _currentLanguage.contains('GB')
-              ? 'en-GB-Journey-F'
-              : 'en-US-Journey-F';
+              ? 'en-GB-Neural2-B'
+              : 'en-US-Neural2-H';
 
       final response = await http.post(
         url,
@@ -111,8 +113,13 @@ class TtsService {
         final String audioContent = data['audioContent'];
         final Uint8List audioBytes = base64Decode(audioContent);
 
+        // Sesi geçici bir dosyaya kaydet, AVPlayer uzantıya ihtiyaç duyar
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/tts_audio.mp3');
+        await file.writeAsBytes(audioBytes);
+
         // Sesi audioplayers paketi ile oynat
-        await _audioPlayer.play(BytesSource(audioBytes));
+        await _audioPlayer.play(DeviceFileSource(file.path));
       } else {
         debugPrint('Cloud TTS Hatası: ${response.body}');
         // Hata olursa (örneğin limit biterse) telefondaki sese düş (Fallback)
