@@ -9,7 +9,8 @@ class PremiumProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _subscriptionType;
 
-  bool get isPremium => _isPremium;
+  //bool get isPremium => _isPremium;
+  bool get isPremium => true;
   bool get isLoading => _isLoading;
   String? get subscriptionType => _subscriptionType;
 
@@ -59,10 +60,10 @@ class PremiumProvider with ChangeNotifier {
         _threeMonthPrice = current.threeMonth?.storeProduct.priceString ?? '';
         _sixMonthPrice = current.sixMonth?.storeProduct.priceString ?? '';
         _yearlyPrice = current.annual?.storeProduct.priceString ?? '';
-        
-        debugPrint('Dynamic Prices Fetched:');
-        debugPrint('Monthly: $_monthlyPrice');
-        debugPrint('Yearly: $_yearlyPrice');
+
+        // debugPrint('Dynamic Prices Fetched:');
+        // debugPrint('Monthly: $_monthlyPrice');
+        // debugPrint('Yearly: $_yearlyPrice');
 
         // Yıllık paketin aylık karşılığını hesapla
         if (current.annual != null) {
@@ -249,8 +250,8 @@ class PremiumProvider with ChangeNotifier {
     try {
       final locale = Platform.localeName;
       debugPrint('Detecting locale: $locale');
-      return locale.toLowerCase().contains('tr') || 
-             locale.toLowerCase().contains('tur');
+      return locale.toLowerCase().contains('tr') ||
+          locale.toLowerCase().contains('tur');
     } catch (e) {
       return false;
     }

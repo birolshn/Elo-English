@@ -44,16 +44,23 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
     _initTts();
   }
 
-  bool _hasSpokenFirstMessage = false;
+  int _lastSpokenMessageCount = 0;
 
-  /// IELTS sınavı başlayınca ilk mesajı seslendir
-  void _checkAndSpeakFirstMessage(IeltsProvider provider) {
-    if (!_hasSpokenFirstMessage && provider.isExamActive && provider.messages.isNotEmpty) {
-      final firstMsg = provider.messages.first;
-      if (firstMsg.role == 'assistant') {
-        _hasSpokenFirstMessage = true;
-        _speak(firstMsg.content);
+  /// IELTS sınavında AI tarafından eklenen yeni mesajları otomatik seslendir
+  void _checkAndSpeakLatestAssistantMessage(IeltsProvider provider) {
+    if (!provider.isExamActive || provider.messages.isEmpty) {
+      _lastSpokenMessageCount = 0;
+      return;
+    }
+
+    if (provider.messages.length > _lastSpokenMessageCount) {
+      _lastSpokenMessageCount = provider.messages.length;
+      final latestMsg = provider.messages.last;
+      if (latestMsg.role == 'assistant') {
+        _speak(latestMsg.content);
       }
+    } else if (provider.messages.length < _lastSpokenMessageCount) {
+      _lastSpokenMessageCount = provider.messages.length;
     }
   }
 
@@ -167,11 +174,6 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
     _messageController.clear();
     final provider = context.read<IeltsProvider>();
     await provider.sendMessage(message);
-    // Otomatik sesli okuma - AI cevabını hemen oku
-    final messages = provider.messages;
-    if (messages.isNotEmpty && messages.last.role == 'assistant') {
-      _speak(messages.last.content);
-    }
     _scrollToBottom();
   }
 
@@ -191,8 +193,8 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
     final ieltsProvider = context.watch<IeltsProvider>();
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    // İlk mesajı otomatik seslendir
-    _checkAndSpeakFirstMessage(ieltsProvider);
+    // Yeni gelen asistan mesajlarını otomatik seslendir
+    _checkAndSpeakLatestAssistantMessage(ieltsProvider);
 
     // Sınav aktif değilse başlangıç ekranı göster
     if (!ieltsProvider.isExamActive &&
@@ -212,19 +214,32 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
           children: [
             // Header
             _buildHeader(context, ieltsProvider, primaryColor),
-            // Part 2 Topic Card (hazırlık aşamasında göster)
-            if (ieltsProvider.currentPart == IeltsPart.part2Prep ||
-                ieltsProvider.currentPart == IeltsPart.part2Speaking)
-              _buildTopicCard(ieltsProvider),
-            // Messages
+            // Messages & Topic Card combined in ListView
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
-                itemCount: ieltsProvider.messages.length,
+                itemCount: ieltsProvider.messages.length +
+                    ((ieltsProvider.currentPart == IeltsPart.part2Prep ||
+                            ieltsProvider.currentPart ==
+                                IeltsPart.part2Speaking)
+                        ? 1
+                        : 0),
                 itemBuilder: (context, index) {
-                  final message = ieltsProvider.messages[index];
-                  return _buildMessageBubble(message);
+                  final showTopicCard =
+                      ieltsProvider.currentPart == IeltsPart.part2Prep ||
+                      ieltsProvider.currentPart == IeltsPart.part2Speaking;
+
+                  if (showTopicCard) {
+                    if (index == 0) {
+                      return _buildTopicCard(ieltsProvider);
+                    }
+                    final message = ieltsProvider.messages[index - 1];
+                    return _buildMessageBubble(message);
+                  } else {
+                    final message = ieltsProvider.messages[index];
+                    return _buildMessageBubble(message);
+                  }
                 },
               ),
             ),
@@ -313,7 +328,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '🎤 IELTS Speaking Sınav Simülasyonu',
+                      '🎤 IELTS Speaking Exam Simulation',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -323,24 +338,24 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                     const SizedBox(height: 16),
                     _buildPartInfoCard(
                       'Part 1 - Introduction',
-                      'Kendinizi tanıtın ve genel sorulara cevap verin',
-                      '4-5 dakika',
+                      'Introduce yourself and answer general questions',
+                      '4-5 minutes',
                       const Color(0xFF0EA5E9),
                       Icons.person_outline,
                     ),
                     const SizedBox(height: 12),
                     _buildPartInfoCard(
                       'Part 2 - Long Turn',
-                      'Verilen konu kartı hakkında 1-2 dakika konuşun',
-                      '3-4 dakika',
+                      'Speak for 1-2 minutes on the given topic card',
+                      '3-4 minutes',
                       const Color(0xFF10B981),
                       Icons.description_outlined,
                     ),
                     const SizedBox(height: 12),
                     _buildPartInfoCard(
                       'Part 3 - Discussion',
-                      'Part 2 ile ilgili derin sorulara cevap verin',
-                      '4-5 dakika',
+                      'Answer in-depth questions related to Part 2',
+                      '4-5 minutes',
                       const Color(0xFFF59E0B),
                       Icons.forum_outlined,
                     ),
@@ -366,7 +381,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                             Icon(Icons.play_arrow_rounded, size: 28),
                             SizedBox(width: 8),
                             Text(
-                              'Sınava Başla',
+                              'Start Exam',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -392,7 +407,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
-                              'Gerçek sınav ortamı için sessiz bir ortamda olun ve mikrofonu kullanın.',
+                              'For a realistic exam experience, find a quiet place and use your microphone.',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFFB45309),
@@ -574,9 +589,9 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Sınavdan Çık'),
+            title: const Text('Exit Exam'),
             content: const Text(
-              'Sınavdan çıkmak istediğinize emin misiniz? İlerlemeniz kaydedilmeyecek.',
+              'Are you sure you want to exit the exam? Your progress will not be saved.',
             ),
             actions: [
               TextButton(
@@ -590,7 +605,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                   Navigator.pop(context);
                 },
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Çık'),
+                child: const Text('Exit'),
               ),
             ],
           ),
@@ -599,7 +614,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
 
   Widget _buildTopicCard(IeltsProvider ieltsProvider) {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -690,7 +705,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
             ),
           ),
           child: const Text(
-            'Hazırım, Konuşmaya Başla',
+            'I\'m Ready, Start Speaking',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
@@ -772,7 +787,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 8),
-                  Text('Puanınız hesaplanıyor...'),
+                  Text('Calculating your score...'),
                 ],
               ),
             ),
@@ -792,7 +807,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                 ),
               ),
               child: const Text(
-                'Yeni Sınav Başlat',
+                'Start New Exam',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
@@ -812,7 +827,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                 ),
               ),
               child: const Text(
-                'Ana Sayfaya Dön',
+                'Back to Home',
                 style: TextStyle(fontSize: 16),
               ),
             ),
@@ -1047,7 +1062,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
             controller: _messageController,
             maxLines: null,
             decoration: InputDecoration(
-              hintText: 'Cevabınızı yazın...',
+              hintText: 'Type your answer...',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
                 borderSide: BorderSide.none,

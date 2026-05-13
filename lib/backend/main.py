@@ -542,7 +542,7 @@ Provide your assessment in the following JSON format ONLY (no other text):
   "vocabulary_score": <vocabulary score>,
   "grammar_score": <grammar score>,
   "coherence_score": <coherence score>,
-  "feedback": "<Brief 2-3 sentence feedback in Turkish summarizing the candidate's strengths and areas for improvement>"
+  "feedback": "<Brief 2-3 sentence feedback in English summarizing the candidate's strengths and areas for improvement>"
 }}"""
 
         try:
@@ -560,7 +560,7 @@ Provide your assessment in the following JSON format ONLY (no other text):
             
             return IeltsEvaluationResponse(
                 band_score=float(result.get("band_score", 5.0)),
-                feedback=result.get("feedback", "Değerlendirme tamamlandı."),
+                feedback=result.get("feedback", "Evaluation completed."),
                 fluency_score=result.get("fluency_score"),
                 vocabulary_score=result.get("vocabulary_score"),
                 grammar_score=result.get("grammar_score"),
@@ -584,7 +584,7 @@ Provide your assessment in the following JSON format ONLY (no other text):
             
             return IeltsEvaluationResponse(
                 band_score=estimated_score,
-                feedback="Sınav performansınız değerlendirildi. Daha uzun ve detaylı cevaplar vererek puanınızı artırabilirsiniz."
+                feedback="Your exam performance has been evaluated. You can increase your score by giving longer and more detailed answers."
             )
 
     except Exception as e:

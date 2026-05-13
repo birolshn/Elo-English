@@ -55,9 +55,10 @@ class UserProvider with ChangeNotifier {
   bool get showLeaderboardDropNotification => _showLeaderboardDropNotification;
   int get currentStreak => _currentStreak;
   int get dailyGoalMinutes => _dailyGoalMinutes;
-  double get dailyGoalProgress => _dailyGoalMinutes > 0
-      ? (_todayUsedMinutes / _dailyGoalMinutes).clamp(0.0, 1.0)
-      : 0.0;
+  double get dailyGoalProgress =>
+      _dailyGoalMinutes > 0
+          ? (_todayUsedMinutes / _dailyGoalMinutes).clamp(0.0, 1.0)
+          : 0.0;
 
   void clearPendingAchievements() {
     _pendingAchievements = [];
@@ -123,8 +124,9 @@ class UserProvider with ChangeNotifier {
             totalTimeMinutes: data['total_time_minutes'] ?? 0,
             usedTimeMinutes: data['used_time_minutes'] ?? 0,
             currentLevel: data['current_level'] ?? 'beginner',
-            completedScenarios:
-                List<String>.from(data['completed_scenarios'] ?? []),
+            completedScenarios: List<String>.from(
+              data['completed_scenarios'] ?? [],
+            ),
             weeklyXp: data['weekly_xp'] ?? 0,
           );
 
@@ -190,7 +192,9 @@ class UserProvider with ChangeNotifier {
       'weekly_xp': 0,
       'current_level': _progress?.currentLevel ?? 'beginner',
       'completed_scenarios': _progress?.completedScenarios ?? [],
-      'display_name': _authUser?.displayName ?? (_authUser?.email != null ? _authUser!.email!.split('@')[0] : 'User'),
+      'display_name':
+          _authUser?.displayName ??
+          (_authUser?.email != null ? _authUser!.email!.split('@')[0] : 'User'),
       'email': _authUser?.email, // Added email to firestore for future fallback
       'last_active': FieldValue.serverTimestamp(),
       'created_at': FieldValue.serverTimestamp(),
@@ -203,11 +207,12 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .orderBy('weekly_xp', descending: true)
-          .limit(50)
-          .get();
+      final snapshot =
+          await _firestore
+              .collection('users')
+              .orderBy('weekly_xp', descending: true)
+              .limit(50)
+              .get();
 
       _leaderboard = [];
       for (int i = 0; i < snapshot.docs.length; i++) {
@@ -215,7 +220,12 @@ class UserProvider with ChangeNotifier {
         final entry = LeaderboardEntry(
           rank: i + 1,
           userId: snapshot.docs[i].id,
-          displayName: data['display_name'] ?? data['name'] ?? data['username'] ?? (data['email'] != null ? data['email'].split('@')[0] : null) ?? 'User',
+          displayName:
+              data['display_name'] ??
+              data['name'] ??
+              data['username'] ??
+              (data['email'] != null ? data['email'].split('@')[0] : null) ??
+              'User',
           weeklyXp: data['weekly_xp'] ?? 0,
           avatarUrl: data['avatar_url'],
         );
@@ -223,12 +233,11 @@ class UserProvider with ChangeNotifier {
       }
 
       // Kullanıcının güncel sırasını bul
-      final myEntry =
-          _leaderboard.where((e) => e.userId == userId).firstOrNull;
+      final myEntry = _leaderboard.where((e) => e.userId == userId).firstOrNull;
       if (myEntry != null) {
         _currentRank = myEntry.rank;
       } else {
-          await loadCurrentUserRank();
+        await loadCurrentUserRank();
       }
 
       await _checkLeaderboardRankChange();
@@ -252,11 +261,12 @@ class UserProvider with ChangeNotifier {
       final userXp = userData?['weekly_xp'] ?? 0;
 
       // 2. Daha yüksek XP'ye sahip kullanıcı sayısını say
-      final countSnapshot = await _firestore
-          .collection('users')
-          .where('weekly_xp', isGreaterThan: userXp)
-          .count()
-          .get();
+      final countSnapshot =
+          await _firestore
+              .collection('users')
+              .where('weekly_xp', isGreaterThan: userXp)
+              .count()
+              .get();
 
       _currentRank = (countSnapshot.count ?? 0) + 1;
       notifyListeners();
@@ -272,7 +282,7 @@ class UserProvider with ChangeNotifier {
     final totalConversations = prefs.getInt('total_conversations') ?? 0;
     final totalTimeMinutes = prefs.getInt('total_time_minutes') ?? 0;
     final completedScenarios = prefs.getStringList('completed_scenarios') ?? [];
-    
+
     _baseLevel = prefs.getString('user_level')?.toLowerCase() ?? 'beginner';
     final currentLevel = prefs.getString('current_level') ?? _baseLevel;
 
@@ -384,7 +394,11 @@ class UserProvider with ChangeNotifier {
         'completed_scenarios': newCompletedScenarios,
         'current_level': _progress!.currentLevel,
         'weekly_xp': FieldValue.increment(xpEarned),
-        'display_name': _authUser?.displayName ?? (_authUser?.email != null ? _authUser!.email!.split('@')[0] : 'User'),
+        'display_name':
+            _authUser?.displayName ??
+            (_authUser?.email != null
+                ? _authUser!.email!.split('@')[0]
+                : 'User'),
         'last_active': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {

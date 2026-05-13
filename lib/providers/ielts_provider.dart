@@ -81,15 +81,15 @@ class IeltsProvider with ChangeNotifier {
   String get partDescription {
     switch (_currentPart) {
       case IeltsPart.part1:
-        return 'Genel sorulara cevap verin';
+        return 'Answer general questions';
       case IeltsPart.part2Prep:
-        return 'Konuyu okuyun ve hazırlanın';
+        return 'Read the topic and prepare';
       case IeltsPart.part2Speaking:
-        return 'Konu hakkında konuşun';
+        return 'Speak about the topic';
       case IeltsPart.part3:
-        return 'Derin sorulara cevap verin';
+        return 'Answer in-depth questions';
       case IeltsPart.completed:
-        return 'Sınav tamamlandı!';
+        return 'Exam completed!';
     }
   }
 
