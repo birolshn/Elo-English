@@ -9,8 +9,7 @@ class PremiumProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _subscriptionType;
 
-  //bool get isPremium => _isPremium;
-  bool get isPremium => true;
+  bool get isPremium => _isPremium;
   bool get isLoading => _isLoading;
   String? get subscriptionType => _subscriptionType;
 
