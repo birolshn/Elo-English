@@ -166,57 +166,62 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: Container(
-          width: 50,
-          height: 50,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: rankColor ?? Colors.grey.withOpacity(0.1),
-            border:
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(12),
+          leading: Container(
+            width: 50,
+            height: 50,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: rankColor ?? Colors.grey.withOpacity(0.1),
+              border:
+                  rankColor != null
+                      ? Border.all(color: rankColor, width: 2)
+                      : null,
+            ),
+            child:
                 rankColor != null
-                    ? Border.all(color: rankColor, width: 2)
-                    : null,
-          ),
-          child:
-              rankColor != null
-                  ? Text(
-                    '#${entry.rank}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black.withOpacity(0.7),
+                    ? Text(
+                      '#${entry.rank}',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black.withOpacity(0.7),
+                      ),
+                    )
+                    : Text(
+                      '${entry.rank}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey,
+                      ),
                     ),
-                  )
-                  : Text(
-                    '${entry.rank}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-        ),
-        title: Text(
-          isMe ? '$displayName (You)' : displayName,
-          style: TextStyle(
-            fontWeight: isMe ? FontWeight.bold : FontWeight.w600,
-            color: isMe ? Theme.of(context).primaryColor : Colors.black87,
           ),
-        ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '${entry.weeklyXp} XP',
+          title: Text(
+            isMe ? '$displayName (You)' : displayName,
             style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).primaryColor,
+              fontWeight: isMe ? FontWeight.bold : FontWeight.w600,
+              color: isMe ? Theme.of(context).primaryColor : Colors.black87,
+            ),
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${entry.weeklyXp} XP',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).primaryColor,
+              ),
             ),
           ),
         ),

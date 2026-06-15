@@ -33,6 +33,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   bool _isRecorderReady = false;
   bool _hasShownTimeUpDialog = false;
   bool _isKeyboardMode = false;
+  bool _shouldBeListening = false;
 
   // Pulsating animation for mic button
   late AnimationController _pulseController;
@@ -82,14 +83,23 @@ class _ConversationScreenState extends State<ConversationScreen>
       await _speech.cancel();
       
       _speechEnabled = await _speech.initialize(
-        onStatus: (status) {
+        onStatus: (status) async {
           debugPrint('🎤 Conv Speech status: $status');
           if (status == 'done' && mounted) {
-            _pulseController.stop();
-            _pulseController.reset();
-            setState(() => _isListening = false);
+            if (_shouldBeListening) {
+              // Auto-restart if we are supposed to be listening
+              await Future.delayed(const Duration(milliseconds: 50));
+              if (_shouldBeListening && mounted) {
+                _startListening();
+              }
+            } else {
+              _pulseController.stop();
+              _pulseController.reset();
+              setState(() => _isListening = false);
+            }
           } else if (status == 'listening' && mounted) {
             _pulseController.repeat(reverse: true);
+            setState(() => _isListening = true);
           }
         },
         onError: (error) {
@@ -142,6 +152,8 @@ class _ConversationScreenState extends State<ConversationScreen>
       if (!_speechEnabled) return;
     }
 
+    _shouldBeListening = true;
+
     // Mevcut metni koru - tekrar basınca üstüne eklensin
     final existingText = _messageController.text.trim();
 
@@ -165,8 +177,8 @@ class _ConversationScreenState extends State<ConversationScreen>
         }
       },
       localeId: 'en_US',
-      listenFor: const Duration(seconds: 60),
-      pauseFor: const Duration(seconds: 10),
+      listenFor: const Duration(minutes: 10),
+      pauseFor: const Duration(seconds: 60),
       listenMode: stt.ListenMode.dictation,
     );
 
@@ -175,6 +187,7 @@ class _ConversationScreenState extends State<ConversationScreen>
   }
 
   Future<void> _stopListening() async {
+    _shouldBeListening = false;
     _pendingAutoSend = true;
     await _speech.stop();
     _pulseController.stop();

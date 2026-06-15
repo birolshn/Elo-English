@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'package:tiktok_business_sdk/tiktok_business_sdk.dart';
+import 'package:tiktok_business_sdk/tiktok_business_sdk_platform_interface.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -33,6 +35,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (success && mounted) {
+      // TikTok Event Tracking
+      try {
+        final tiktokSdk = TiktokBusinessSdk();
+        await tiktokSdk.trackTTEvent(
+          event: EventName.Login,
+        );
+      } catch (e) {
+        debugPrint('TikTok Login Event Tracking Error: $e');
+      }
+
       // Check email verification
       if (!authProvider.isEmailVerified) {
         // Email not verified - sign out and show error

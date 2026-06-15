@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthService {
@@ -41,6 +42,22 @@ class AuthService {
       if (displayName != null && displayName.isNotEmpty) {
         await credential.user?.updateDisplayName(displayName);
       }
+
+      // Create Firestore user document immediately to avoid race conditions with display name
+      final uid = credential.user!.uid;
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'user_id': uid,
+        'total_conversations': 0,
+        'total_time_minutes': 0,
+        'used_time_minutes': 0,
+        'weekly_xp': 0,
+        'current_level': 'beginner',
+        'completed_scenarios': [],
+        'display_name': displayName ?? email.split('@')[0],
+        'email': email.trim(),
+        'last_active': FieldValue.serverTimestamp(),
+        'created_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       return credential;
     } on FirebaseAuthException catch (e) {

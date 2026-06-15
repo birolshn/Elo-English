@@ -23,23 +23,59 @@ import 'providers/premium_provider.dart';
 import 'providers/ielts_provider.dart';
 import 'providers/scenario_provider.dart';
 import 'services/notification_service.dart';
+import 'package:tiktok_business_sdk/tiktok_business_sdk.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Çevre değişkenlerini (API Keyler vb.) yükle
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('⚠️ dotenv loading failed: $e');
+  }
   
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    debugPrint('⚠️ Firebase initialization failed: $e');
+  }
 
-  // RevenueCat'i başlat
-  await initializeRevenueCat();
-
-  // Bildirimleri başlat
-  final notificationService = NotificationService();
-  await notificationService.initialize();
+  // Diğer üçüncü taraf SDK'ları arka planda ve hata korumalı olarak başlat.
+  // Bu sayede hot restart yapıldığında veya bir SDK kilitlendiğinde uygulama açılışı engellenmez.
+  _initializeThirdPartySDKs();
 
   runApp(const MyApp());
+}
+
+Future<void> _initializeThirdPartySDKs() async {
+  // RevenueCat'i başlat
+  try {
+    await initializeRevenueCat();
+  } catch (e) {
+    debugPrint('⚠️ RevenueCat initialization failed: $e');
+  }
+
+  // Bildirimleri başlat
+  try {
+    final notificationService = NotificationService();
+    await notificationService.initialize();
+  } catch (e) {
+    debugPrint('⚠️ NotificationService initialization failed: $e');
+  }
+
+  // TikTok SDK'sını konfigüre edin
+  try {
+    final tiktokSdk = TiktokBusinessSdk();
+    await tiktokSdk.initTiktokBusinessSdk(
+      accessToken: '', // TikTok Events Manager'dan alınan access token
+      appId: '6761770472',
+      ttAppId: '7646455276930809864',
+      openDebug: false, // Test ederken true yapabilirsiniz
+    );
+  } catch (e) {
+    debugPrint('⚠️ TikTok SDK initialization failed: $e');
+  }
 }
 
 Future<void> initializeRevenueCat() async {
@@ -126,7 +162,7 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),

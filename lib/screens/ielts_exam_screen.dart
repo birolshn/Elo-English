@@ -25,6 +25,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   bool _pendingAutoSend = false;
   IeltsProvider? _ieltsProvider;
   bool _isKeyboardMode = false;
+  bool _shouldBeListening = false;
 
   // Pulsating animation for mic button
   late AnimationController _pulseController;
@@ -73,16 +74,25 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   Future<void> _initSpeech() async {
     // Önceki session'ı temizle (conversation screen'den kalma olabilir)
     await _speech.cancel();
-    
+
     _speechEnabled = await _speech.initialize(
-      onStatus: (status) {
+      onStatus: (status) async {
         debugPrint('🎤 IELTS Speech status: $status');
         if (status == 'done' && mounted) {
-          _pulseController.stop();
-          _pulseController.reset();
-          setState(() => _isListening = false);
+          if (_shouldBeListening) {
+            // Auto-restart if we are supposed to be listening
+            await Future.delayed(const Duration(milliseconds: 50));
+            if (_shouldBeListening && mounted) {
+              _startListening();
+            }
+          } else {
+            _pulseController.stop();
+            _pulseController.reset();
+            setState(() => _isListening = false);
+          }
         } else if (status == 'listening' && mounted) {
           _pulseController.repeat(reverse: true);
+          setState(() => _isListening = true);
         }
       },
       onError: (error) {
@@ -99,7 +109,9 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   }
 
   Future<void> _initTts() async {
-    await _ttsService.initialize(language: 'en-GB'); // British English for IELTS
+    await _ttsService.initialize(
+      language: 'en-GB',
+    ); // British English for IELTS
   }
 
   void _scrollToBottom() {
@@ -121,11 +133,14 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
       if (!_speechEnabled) return;
     }
 
+    _shouldBeListening = true;
     final existingText = _messageController.text.trim();
 
     _speech.listen(
       onResult: (result) {
-        debugPrint('🎤 IELTS Recognized: ${result.recognizedWords} (final: ${result.finalResult})');
+        debugPrint(
+          '🎤 IELTS Recognized: ${result.recognizedWords} (final: ${result.finalResult})',
+        );
         setState(() {
           if (existingText.isNotEmpty) {
             _messageController.text = '$existingText ${result.recognizedWords}';
@@ -142,8 +157,8 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
         }
       },
       localeId: 'en_US',
-      listenFor: const Duration(seconds: 60),
-      pauseFor: const Duration(seconds: 10),
+      listenFor: const Duration(minutes: 10),
+      pauseFor: const Duration(seconds: 60),
       listenMode: stt.ListenMode.dictation,
     );
 
@@ -151,6 +166,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
   }
 
   Future<void> _stopListening() async {
+    _shouldBeListening = false;
     _pendingAutoSend = true;
     await _speech.stop();
     _pulseController.stop();
@@ -158,7 +174,9 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
     setState(() => _isListening = false);
     // Fallback: stop sonrası metin varsa ve finalResult gelmezse de gönder
     await Future.delayed(const Duration(milliseconds: 500));
-    if (_pendingAutoSend && mounted && _messageController.text.trim().isNotEmpty) {
+    if (_pendingAutoSend &&
+        mounted &&
+        _messageController.text.trim().isNotEmpty) {
       _pendingAutoSend = false;
       _sendMessage();
     }
@@ -219,7 +237,8 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
               child: ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
-                itemCount: ieltsProvider.messages.length +
+                itemCount:
+                    ieltsProvider.messages.length +
                     ((ieltsProvider.currentPart == IeltsPart.part2Prep ||
                             ieltsProvider.currentPart ==
                                 IeltsPart.part2Speaking)
@@ -403,7 +422,11 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFFD97706), size: 24),
+                          const Icon(
+                            Icons.lightbulb_outline_rounded,
+                            color: Color(0xFFD97706),
+                            size: 24,
+                          ),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
@@ -826,10 +849,7 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'Back to Home',
-                style: TextStyle(fontSize: 16),
-              ),
+              child: const Text('Back to Home', style: TextStyle(fontSize: 16)),
             ),
           ),
         ],
@@ -1025,10 +1045,15 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
                 height: 80,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _isListening ? Colors.red : Theme.of(context).primaryColor,
+                  color:
+                      _isListening
+                          ? Colors.red
+                          : Theme.of(context).primaryColor,
                   boxShadow: [
                     BoxShadow(
-                      color: (_isListening ? Colors.red : Theme.of(context).primaryColor)
+                      color: (_isListening
+                              ? Colors.red
+                              : Theme.of(context).primaryColor)
                           .withOpacity(0.3),
                       blurRadius: 15 * _pulseAnimation.value,
                       spreadRadius: 5 * (_pulseAnimation.value - 1),
@@ -1069,7 +1094,10 @@ class _IeltsExamScreenState extends State<IeltsExamScreen>
               ),
               filled: true,
               fillColor: Colors.grey.shade100,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 12,
+              ),
             ),
           ),
         ),

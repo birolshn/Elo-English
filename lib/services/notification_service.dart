@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -39,10 +40,14 @@ class NotificationService {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    // Timezone'u başlat
-    tz_data.initializeTimeZones();
-    // Yerel timezone'u ayarla (Türkiye için Europe/Istanbul)
-    tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
+    try {
+      // Timezone'u başlat
+      tz_data.initializeTimeZones();
+      // Yerel timezone'u ayarla (Türkiye için Europe/Istanbul)
+      tz.setLocalLocation(tz.getLocation('Europe/Istanbul'));
+    } catch (e) {
+      debugPrint('⚠️ Warning: Timezone initialization failed: $e');
+    }
 
     // Android ayarları
     const androidSettings = AndroidInitializationSettings(
@@ -111,8 +116,16 @@ class NotificationService {
       body,
       NotificationDetails(
         android: AndroidNotificationDetails(
-          type == 'premium' ? 'premium_reminder' : type == 'leaderboard_drop' ? 'leaderboard_alerts' : 'daily_motivation',
-          type == 'premium' ? 'Premium Reminder' : type == 'leaderboard_drop' ? 'Leaderboard Alerts' : 'Daily Motivation',
+          type == 'premium'
+              ? 'premium_reminder'
+              : type == 'leaderboard_drop'
+              ? 'leaderboard_alerts'
+              : 'daily_motivation',
+          type == 'premium'
+              ? 'Premium Reminder'
+              : type == 'leaderboard_drop'
+              ? 'Leaderboard Alerts'
+              : 'Daily Motivation',
           channelDescription:
               type == 'premium'
                   ? 'Weekly premium reminder notifications'

@@ -118,6 +118,15 @@ class UserProvider with ChangeNotifier {
         if (doc.exists) {
           final data = doc.data() as Map<String, dynamic>;
 
+          // Firestore'daki display_name ile Auth'taki gerçek ismi senkronize et / düzelt
+          final String? firestoreDisplayName = data['display_name'];
+          final String? authDisplayName = _authUser?.displayName;
+          if (authDisplayName != null &&
+              authDisplayName.trim().isNotEmpty &&
+              authDisplayName != firestoreDisplayName) {
+            updateDisplayName(authDisplayName);
+          }
+
           final firestoreProgress = UserProgress(
             userId: userId,
             totalConversations: data['total_conversations'] ?? 0,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'package:tiktok_business_sdk/tiktok_business_sdk.dart';
+import 'package:tiktok_business_sdk/tiktok_business_sdk_platform_interface.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -40,6 +42,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (mounted) {
       if (success) {
+        // TikTok Event Tracking
+        try {
+          final tiktokSdk = TiktokBusinessSdk();
+          await tiktokSdk.trackTTEvent(
+            event: EventName.Registration,
+          );
+        } catch (e) {
+          debugPrint('TikTok Registration Event Tracking Error: $e');
+        }
+
         // Registration successful - sign out and redirect to login
         await authProvider.signOut();
         ScaffoldMessenger.of(context).showSnackBar(

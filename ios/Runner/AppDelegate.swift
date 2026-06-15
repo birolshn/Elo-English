@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UserNotifications
+import TikTokBusinessSDK
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -13,5 +14,10 @@ import UserNotifications
 
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func applicationDidBecomeActive(_ application: UIApplication) {
+    super.applicationDidBecomeActive(application)
+    TikTokBusiness.requestTrackingAuthorization()
   }
 }

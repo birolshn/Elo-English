@@ -260,44 +260,49 @@ class AccountScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: ListTile(
-                        leading: const Icon(
-                          Icons.restore_rounded,
-                          color: Color(0xFF64748B),
-                        ),
-                        title: const Text(
-                          'Restore Purchases',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF1E293B),
-                            fontWeight: FontWeight.w500,
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.restore_rounded,
+                            color: Color(0xFF64748B),
                           ),
-                        ),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Color(0xFFCBD5E1),
-                        ),
-                        onTap: () async {
-                          final premiumProvider =
-                              context.read<PremiumProvider>();
-                          final restored =
-                              await premiumProvider.restorePurchases();
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  restored
-                                      ? '✅ Purchases restored successfully!'
-                                      : 'No previous purchases found.',
+                          title: const Text(
+                            'Restore Purchases',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFF1E293B),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: Color(0xFFCBD5E1),
+                          ),
+                          onTap: () async {
+                            final premiumProvider =
+                                context.read<PremiumProvider>();
+                            final restored =
+                                await premiumProvider.restorePurchases();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    restored
+                                        ? '✅ Purchases restored successfully!'
+                                        : 'No previous purchases found.',
+                                  ),
+                                  backgroundColor: restored
+                                      ? Colors.green
+                                      : const Color(0xFF64748B),
                                 ),
-                                backgroundColor: restored
-                                    ? Colors.green
-                                    : const Color(0xFF64748B),
-                              ),
-                            );
-                          }
-                        },
+                              );
+                            }
+                          },
+                        ),
                       ),
                     ),
 
@@ -318,32 +323,37 @@ class AccountScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: ListTile(
-                        leading: const Icon(
-                          Icons.privacy_tip_outlined,
-                          color: Color(0xFF64748B),
-                        ),
-                        title: const Text(
-                          'Privacy Policy',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Color(0xFF1E293B),
-                            fontWeight: FontWeight.w500,
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          leading: const Icon(
+                            Icons.privacy_tip_outlined,
+                            color: Color(0xFF64748B),
                           ),
-                        ),
-                        trailing: const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Color(0xFFCBD5E1),
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const PrivacyPolicyScreen(),
+                          title: const Text(
+                            'Privacy Policy',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFF1E293B),
+                              fontWeight: FontWeight.w500,
                             ),
-                          );
-                        },
+                          ),
+                          trailing: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: Color(0xFFCBD5E1),
+                          ),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const PrivacyPolicyScreen(),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
 

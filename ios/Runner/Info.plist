@@ -61,5 +61,9 @@
 	<array>
 		<string>https</string>
 	</array>
+	<key>TikTokAppID</key>
+	<string>7646455276930809864</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>We need your permission to track your usage of this app to optimize and measure ad campaigns.</string>
 </dict>
 </plist>
