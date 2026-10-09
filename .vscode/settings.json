@@ -8,5 +8,10 @@
         "pythonTerminalEnvVarActivation"
     ],
     "python.envFile": "${workspaceFolder}/lib/backend/.env",
-    "python.analysis.typeCheckingMode": "off"
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportPrivateImportUsage": "none",
+        "reportGeneralTypeIssues": "none",
+        "reportMissingImports": "none"
+    }
 }

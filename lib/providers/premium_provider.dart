@@ -20,6 +20,44 @@ class PremiumProvider with ChangeNotifier {
   String _yearlyPrice = '';
   String _yearlyMonthlyEquivalent = '';
 
+  // Yıllık plandaki ücretsiz deneme (App Store / Play Console'da tanımlı intro offer)
+  int? _yearlyTrialDays;
+  bool _trialEligible = true;
+
+  /// Kullanıcı uygunsa yıllık planın ücretsiz deneme süresi (gün); yoksa null.
+  /// Mağazada deneme tanımlı değilse null döner, arayüz deneme vaat etmez.
+  int? get yearlyTrialDays => _trialEligible ? _yearlyTrialDays : null;
+  bool get hasYearlyTrial => yearlyTrialDays != null;
+
+  /// Ürün bilgisinden ücretsiz deneme süresini hesapla (iOS intro price / Android free phase)
+  static int? freeTrialDaysFrom({IntroductoryPrice? intro, SubscriptionOption? option}) {
+    int toDays(PeriodUnit unit, int value) {
+      switch (unit) {
+        case PeriodUnit.day:
+          return value;
+        case PeriodUnit.week:
+          return value * 7;
+        case PeriodUnit.month:
+          return value * 30;
+        case PeriodUnit.year:
+          return value * 365;
+        case PeriodUnit.unknown:
+          return 0;
+      }
+    }
+
+    if (intro != null && intro.price == 0) {
+      final days = toDays(intro.periodUnit, intro.periodNumberOfUnits) * (intro.cycles > 0 ? intro.cycles : 1);
+      if (days > 0) return days;
+    }
+    final freePeriod = option?.freePhase?.billingPeriod;
+    if (freePeriod != null) {
+      final days = toDays(freePeriod.unit, freePeriod.value);
+      if (days > 0) return days;
+    }
+    return null;
+  }
+
   PremiumProvider() {
     _initialize();
   }
@@ -64,6 +102,27 @@ class PremiumProvider with ChangeNotifier {
         // debugPrint('Monthly: $_monthlyPrice');
         // debugPrint('Yearly: $_yearlyPrice');
 
+        // Yıllık plandaki ücretsiz deneme ve kullanıcının uygunluğu
+        final annualProduct = current.annual?.storeProduct;
+        _yearlyTrialDays = annualProduct == null
+            ? null
+            : freeTrialDaysFrom(
+                intro: annualProduct.introductoryPrice,
+                option: annualProduct.defaultOption,
+              );
+        if (_yearlyTrialDays != null && annualProduct != null && Platform.isIOS) {
+          try {
+            final eligibility = await Purchases.checkTrialOrIntroductoryPriceEligibility(
+              [annualProduct.identifier],
+            );
+            final status = eligibility[annualProduct.identifier]?.status;
+            // Daha önce deneme kullananlara yeniden "ücretsiz" denmesin
+            _trialEligible = status != IntroEligibilityStatus.introEligibilityStatusIneligible;
+          } catch (e) {
+            debugPrint('Trial eligibility error: $e');
+          }
+        }
+
         // Yıllık paketin aylık karşılığını hesapla
         if (current.annual != null) {
           final annualProduct = current.annual!.storeProduct;
@@ -89,6 +148,14 @@ class PremiumProvider with ChangeNotifier {
   void _updatePremiumFromCustomerInfo(CustomerInfo customerInfo) {
     final entitlement = customerInfo.entitlements.all['premium'];
     _isPremium = entitlement?.isActive ?? false;
+
+    // Deneme sürüyorsa bitmeden 2 gün önce hatırlat (deneme ekranında verilen söz)
+    if (_isPremium && entitlement?.periodType == PeriodType.trial) {
+      final expiration = DateTime.tryParse(entitlement?.expirationDate ?? '');
+      if (expiration != null) {
+        NotificationService().scheduleTrialEndingReminder(expiration.toLocal());
+      }
+    }
 
     if (_isPremium) {
       final productId = entitlement?.productIdentifier ?? '';

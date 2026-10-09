@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../providers/conversation_provider.dart';
+import '../providers/premium_provider.dart';
+import 'trial_offer_screen.dart';
 
 /// Data model for a goal option
 class GoalOption {
@@ -152,7 +154,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     }
   }
 
+  bool _trialOfferShown = false;
+
+  /// Onboarding'in tüm çıkışları (deneme konuşması, "Skip") buradan geçer:
+  /// önce ücretsiz deneme teklifi gösterilir, sonra onboarding tamamlanır.
   Future<void> _completeOnboarding() async {
+    if (!_trialOfferShown && mounted && !context.read<PremiumProvider>().isPremium) {
+      _trialOfferShown = true;
+      await TrialOfferScreen.show(context);
+    }
+    await _finishOnboarding();
+  }
+
+  Future<void> _finishOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
     if (_selectedGoal != null) {

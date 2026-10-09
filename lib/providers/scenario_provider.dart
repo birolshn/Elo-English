@@ -56,12 +56,14 @@ class ScenarioProvider with ChangeNotifier {
 
     try {
       final scenarios = await _apiService.getScenarios();
-      _scenarios = scenarios;
+      // Kullanıcının oluşturduğu özel senaryolar sunucu listesinde yok; koru
+      final customScenarios = _scenarios.where((s) => s.isCustom).toList();
+      _scenarios = [...customScenarios, ...scenarios];
       _isLoading = false;
       _error = null;
       
       // Save to local cache
-      await _saveToCache(scenarios);
+      await _saveToCache(_scenarios);
       
       notifyListeners();
     } catch (e) {
@@ -80,5 +82,13 @@ class ScenarioProvider with ChangeNotifier {
       // Ancak UI tarafında özel bir hata yönetimi istenmiyorsa rethrow'u kaldırabiliriz.
       // rethrow; // Debugger'ın burada durmasını engellemek için yorum satırına alabiliriz
     }
+  }
+
+  Future<void> addCustomScenario(Scenario scenario) async {
+    // Avoid duplicate
+    _scenarios.removeWhere((s) => s.id == scenario.id);
+    _scenarios.insert(0, scenario);
+    await _saveToCache(_scenarios);
+    notifyListeners();
   }
 }

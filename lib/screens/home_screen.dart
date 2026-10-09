@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
 import '../providers/premium_provider.dart';
-import '../widgets/premium_popup.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -160,19 +159,64 @@ class _HomeScreenState extends State<HomeScreen> {
                     _buildMainActionCard(
                       context,
                       icon: Icons.record_voice_over_rounded,
-                      title: 'IELTS Speaking Simulator',
-                      subtitle: 'Part 1, 2 & 3 mock tests with AI examiner',
+                      title: 'IELTS & TOEFL Speaking',
+                      subtitle: 'IELTS and TOEFL iBT-style mock tests with AI examiner',
                       color: const Color(0xFF9333EA),
-                      isPremium: true,
-                      onTap: () {
-                        final isPremium =
-                            context.read<PremiumProvider>().isPremium;
-                        if (isPremium) {
-                          Navigator.pushNamed(context, '/ielts-exam');
-                        } else {
-                          showPremiumPopup(context, triggerContext: 'ielts');
-                        }
-                      },
+                      // Ücretsiz kullanıcılar haftada 1 sınav yapabilir; kota sınav ekranında kontrol edilir
+                      isPremium: !context.watch<PremiumProvider>().isPremium,
+                      badgeLabel: '1 FREE TEST / WEEK',
+                      onTap: () => Navigator.pushNamed(context, '/ielts-exam'),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Smart Practice & Retention Section Title
+                    const Text(
+                      'Smart Practice & Retention',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // Mistake Vault Card
+                    _buildToolCard(
+                      context,
+                      icon: Icons.fact_check_rounded,
+                      title: 'Mistake Vault & Quiz',
+                      subtitle: 'Auto-saved grammar mistakes & review practice',
+                      badge: 'AI Review',
+                      color: const Color(0xFFE11D48),
+                      onTap: () => Navigator.pushNamed(context, '/mistakes'),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Word Bank Card
+                    _buildToolCard(
+                      context,
+                      icon: Icons.style_rounded,
+                      title: 'Word Bank & Flashcards',
+                      subtitle: 'SuperMemo SM-2 spaced repetition cards',
+                      badge: 'SRS',
+                      color: const Color(0xFF0D9488),
+                      onTap: () => Navigator.pushNamed(context, '/word-bank'),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Shadowing Card
+                    _buildToolCard(
+                      context,
+                      icon: Icons.headphones_rounded,
+                      title: 'Shadowing Mode',
+                      subtitle: 'Listen & repeat native speech to master accent',
+                      badge: 'Accent',
+                      color: const Color(0xFF4F46E5),
+                      onTap: () => Navigator.pushNamed(context, '/shadowing'),
                     ),
 
                     const SizedBox(height: 32),
@@ -399,6 +443,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required String subtitle,
     required Color color,
     bool isPremium = false,
+    String badgeLabel = 'PREMIUM',
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -460,14 +505,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.amber,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.star_rounded,
+                              const Icon(Icons.star_rounded,
                                   color: Colors.white, size: 12),
-                              SizedBox(width: 2),
+                              const SizedBox(width: 2),
                               Text(
-                                'PREMIUM',
+                                badgeLabel,
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -502,7 +547,103 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
+  Widget _buildToolCard(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String badge,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          badge,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFF94A3B8),
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildTipCard(BuildContext context) {
     final tips = [

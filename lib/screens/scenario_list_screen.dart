@@ -7,6 +7,7 @@ import '../providers/user_provider.dart';
 import '../providers/premium_provider.dart';
 import '../providers/scenario_provider.dart';
 import '../widgets/premium_popup.dart';
+import '../widgets/custom_scenario_dialog.dart';
 
 class ScenarioListScreen extends StatefulWidget {
   const ScenarioListScreen({super.key});
@@ -208,7 +209,8 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                   return Stack(
                     children: [
                       ListView.builder(
-                        padding: const EdgeInsets.all(16),
+                        // Alttaki "Create with AI" butonu son kartı örtmesin
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                         itemCount: scenarioProvider.scenarios.length,
                         itemBuilder: (context, index) {
                           final scenario = scenarioProvider.scenarios[index];
@@ -231,6 +233,21 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
               ),
             ),
           ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () async {
+            final scenario = await CustomScenarioDialog.show(context);
+            // Diğer senaryolarla aynı kredi / premium kontrolünden geçir
+            if (scenario != null && context.mounted) {
+              _handleScenarioTap(context, scenario);
+            }
+          },
+          backgroundColor: const Color(0xFF8B5CF6),
+          icon: const Icon(Icons.auto_awesome, color: Colors.white),
+          label: const Text(
+            'Create with AI',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
         ),
       ),
     );
@@ -332,6 +349,7 @@ class _ScenarioListScreenState extends State<ScenarioListScreen> {
                             size: 18,
                             color: Colors.white,
                           ),
+                          SizedBox(width: 6),
                           Text(
                             'Upgrade to Premium',
                             style: TextStyle(fontWeight: FontWeight.bold),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/mistake_vault_service.dart';
 
 class ConversationProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -121,6 +122,9 @@ class ConversationProvider with ChangeNotifier {
   int get elapsedMinutes => _elapsedSeconds ~/ 60;
 
   String _getScenarioGreeting(String scenarioId) {
+    if (_currentScenario != null && _currentScenario!.greeting != null && _currentScenario!.greeting!.isNotEmpty) {
+      return _currentScenario!.greeting!;
+    }
     switch (scenarioId) {
       case 'restaurant':
         return "Hello! Welcome to our restaurant. How can I help you today?";
@@ -142,10 +146,20 @@ class ConversationProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendMessage(String userMessage) async {
+  /// Canlı Akış (Streaming Responses - Item 2.3)
+  ///
+  /// [onSentenceReady] her tamamlanan cümle için sırayla çağrılır; böylece TTS
+  /// ilk cümleyi hemen okumaya başlar ve cevabın geri kalanı da seslendirilir.
+  /// [onStreamingCompleted] hata olsa bile her durumda en sonda çağrılır.
+  Future<void> sendStreamingMessage({
+    required String userMessage,
+    void Function(String sentence)? onSentenceReady,
+    VoidCallback? onStreamingCompleted,
+  }) async {
     if (userMessage.trim().isEmpty || _currentScenario == null) return;
 
     // Kullanıcı mesajını ekle
+    final userMsgIndex = _messages.length;
     _addMessage(
       ConversationMessage(
         role: 'user',
@@ -158,53 +172,182 @@ class ConversationProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    try {
-      // Konuşma geçmişini hazırla
-      final history =
-          _messages
-              .where((msg) => msg.role == 'user' || msg.role == 'assistant')
-              .map((msg) => msg.toJson())
-              .toList();
+    // Telaffuz analizini arka planda asenkron başlat (Item 2.2)
+    _evaluateUserMessagePronunciation(userMsgIndex, userMessage);
 
-      // API'ye gönder
-      final response = await _apiService.sendMessage(
+    // AI placeholder mesajı ekle
+    final aiMsgIndex = _messages.length;
+    _addMessage(
+      ConversationMessage(
+        role: 'assistant',
+        content: '',
+        timestamp: DateTime.now(),
+        isStreaming: true,
+      ),
+    );
+
+    // Seslendirilmek üzere gönderilen metnin uzunluğu
+    int spokenLength = 0;
+    void emitSentences(String text, {bool flush = false}) {
+      if (onSentenceReady == null) return;
+      final pending = text.substring(spokenLength);
+      // Cümle sonu: . ! ? (ve ardından boşluk). Akış ortasında "3." gibi
+      // yarım ifadeleri bölmemek için boşluk şartı aranır.
+      final boundaries = RegExp(r'''[.!?]+["')\]]*\s+''').allMatches(pending);
+      int consumed = 0;
+      for (final m in boundaries) {
+        // Önceki sınırdan bu sınıra kadar olan metnin tamamı bir cümle
+        final sentence = pending.substring(consumed, m.end).trim();
+        consumed = m.end;
+        if (sentence.isNotEmpty) onSentenceReady(sentence);
+      }
+      spokenLength += consumed;
+      if (flush) {
+        final rest = text.substring(spokenLength).trim();
+        spokenLength = text.length;
+        if (rest.isNotEmpty) onSentenceReady(rest);
+      }
+    }
+
+    try {
+      // Mevcut kullanıcı mesajı ve boş AI mesajı hariç geçmiş
+      // (backend kullanıcı mesajını ayrıca "User's new message" olarak ekliyor)
+      final history = _messages
+          .sublist(0, userMsgIndex)
+          .where((msg) => msg.role == 'user' || msg.role == 'assistant')
+          .map((msg) => msg.toJson())
+          .toList();
+
+      final stream = _apiService.streamMessage(
         scenarioId: _currentScenario!.id,
         userMessage: userMessage,
         conversationHistory: history,
+        customSystemPrompt: _currentScenario!.customSystemPrompt,
       );
 
-      // AI cevabını ekle
-      _addMessage(
-        ConversationMessage(
-          role: 'assistant',
-          content: response['ai_message'],
-          timestamp: DateTime.now(),
-          grammarCorrections:
-              response['grammar_corrections'] != null
-                  ? List<String>.from(response['grammar_corrections'])
-                  : null,
-          vocabularySuggestions:
-              response['vocabulary_suggestions'] != null
-                  ? List<String>.from(response['vocabulary_suggestions'])
-                  : null,
-          feedback: response['feedback'],
-        ),
+      String accumulatedText = '';
+      List<String>? grammarCorrections;
+      List<String>? vocabularySuggestions;
+      String? feedback;
+
+      await for (final event in stream) {
+        final type = event['type'];
+
+        if (type == 'chunk') {
+          final String chunk = event['text'] ?? '';
+          accumulatedText += chunk;
+          // Akış sırasında konuşma sıfırlandıysa (Reset) sessizce çık
+          if (aiMsgIndex >= _messages.length) return;
+
+          // Mesajı güncelle
+          _messages[aiMsgIndex] = _messages[aiMsgIndex].copyWith(
+            content: accumulatedText,
+            isStreaming: true,
+          );
+          notifyListeners();
+
+          // Tamamlanan cümleleri hemen TTS'e aktar (ilk ses ~0.5s'de başlar)
+          emitSentences(accumulatedText);
+        } else if (type == 'feedback') {
+          feedback = event['feedback'];
+          grammarCorrections = event['grammar_corrections'] != null
+              ? List<String>.from(event['grammar_corrections'])
+              : null;
+          vocabularySuggestions = event['vocabulary_suggestions'] != null
+              ? List<String>.from(event['vocabulary_suggestions'])
+              : null;
+        } else if (type == 'done') {
+          break;
+        }
+      }
+
+      if (aiMsgIndex >= _messages.length) return;
+
+      final hasText = accumulatedText.trim().isNotEmpty;
+      final finalText = hasText ? accumulatedText.trim() : "That's very interesting, tell me more!";
+      // Kalan (noktalama ile bitmeyen) son kısmı da seslendir
+      if (hasText) {
+        emitSentences(accumulatedText, flush: true);
+      } else {
+        onSentenceReady?.call(finalText);
+      }
+
+      // Akış bittiğinde son halini kaydet
+      _messages[aiMsgIndex] = _messages[aiMsgIndex].copyWith(
+        content: finalText,
+        isStreaming: false,
+        grammarCorrections: grammarCorrections,
+        vocabularySuggestions: vocabularySuggestions,
+        feedback: feedback,
       );
+
+      // Hata Defterine (Mistake Vault - Item 3.1) otomatik kaydet
+      if (grammarCorrections != null && grammarCorrections.isNotEmpty) {
+        importMistakesToVault(grammarCorrections, userMessage);
+      }
     } catch (e) {
       _error = e.toString();
-      debugPrint('❌ Conversation API error: $e');
-      debugPrint('🌐 Base URL: ${ApiService.baseUrl}');
-      _addMessage(
-        ConversationMessage(
-          role: 'assistant',
-          content: "Sorry, I'm having trouble connecting. Please try again.",
-          timestamp: DateTime.now(),
-        ),
-      );
+      debugPrint('❌ Streaming error: $e');
+      const glitchMessage = "Sorry, I had a brief connection glitch. Could you repeat that?";
+      if (aiMsgIndex < _messages.length) {
+        _messages[aiMsgIndex] = _messages[aiMsgIndex].copyWith(
+          content: glitchMessage,
+          isStreaming: false,
+        );
+      }
+      onSentenceReady?.call(glitchMessage);
     } finally {
       _isLoading = false;
       notifyListeners();
+      // Arama ekranı bu çağrıya göre dinlemeye geri döner; hata olsa da çağrılmalı
+      onStreamingCompleted?.call();
     }
+  }
+
+  /// Arka planda telaffuz analizi yap ve kullanıcı mesajına bağla
+  Future<void> _evaluateUserMessagePronunciation(int msgIndex, String userText) async {
+    try {
+      final result = await _apiService.evaluatePronunciation(
+        targetSentence: userText,
+        spokenText: userText,
+      );
+      if (msgIndex < _messages.length && _messages[msgIndex].role == 'user') {
+        _messages[msgIndex] = _messages[msgIndex].copyWith(
+          pronunciationResult: result,
+        );
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  /// Hata Defterine Kayıt (Item 3.1)
+  void importMistakesToVault(List<String> corrections, String userMessage) {
+    try {
+      importMistakeDynamic(corrections, userMessage, _currentScenario?.title ?? 'Conversation Practice');
+    } catch (_) {}
+  }
+
+  void importMistakeDynamic(List<String> corrections, String userMessage, String title) async {
+    try {
+      final mistakeService = (await importMistakeVaultService());
+      await mistakeService.autoRecordFromAiCorrections(
+        corrections: corrections,
+        userMessage: userMessage,
+        scenarioTitle: title,
+      );
+    } catch (_) {}
+  }
+
+  dynamic importMistakeVaultService() async {
+    // Dynamic import to avoid tight coupling if not needed
+    return MistakeVaultService();
+  }
+
+  Future<void> sendMessage(String userMessage) async {
+    if (userMessage.trim().isEmpty || _currentScenario == null) return;
+
+    // Use streaming for smoother UX
+    await sendStreamingMessage(userMessage: userMessage);
   }
 
   void clearConversation() {

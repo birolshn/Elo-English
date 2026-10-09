@@ -16,6 +16,9 @@ import 'screens/progress_screen.dart';
 import 'screens/ielts_exam_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/mistake_vault_screen.dart';
+import 'screens/word_bank_screen.dart';
+import 'screens/shadowing_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/conversation_provider.dart';
 import 'providers/user_provider.dart';
@@ -237,6 +240,9 @@ class MyApp extends StatelessWidget {
           '/progress': (context) => const ProgressScreen(),
           '/ielts-exam': (context) => const IeltsExamScreen(),
           '/notifications': (context) => const NotificationsScreen(),
+          '/mistakes': (context) => const MistakeVaultScreen(),
+          '/word-bank': (context) => const WordBankScreen(),
+          '/shadowing': (context) => const ShadowingScreen(),
         },
       ),
     );

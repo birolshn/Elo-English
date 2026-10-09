@@ -222,6 +222,41 @@ class NotificationService {
     );
   }
 
+  /// Ücretsiz deneme bitmeden 2 gün önce tek seferlik hatırlatma
+  Future<void> scheduleTrialEndingReminder(DateTime trialEndsAt) async {
+    try {
+      await initialize();
+      final remindAt = trialEndsAt.subtract(const Duration(days: 2));
+      if (remindAt.isBefore(DateTime.now())) return;
+      await _notifications.zonedSchedule(
+        3, // Bildirim ID (deneme hatırlatması)
+        'Your free trial ends in 2 days',
+        'Your Elo English Premium trial ends soon. You can manage or cancel it anytime in your account settings.',
+        tz.TZDateTime.from(remindAt, tz.local),
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            'trial_reminder',
+            'Trial Reminder',
+            channelDescription: 'Reminder before the free trial ends',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (e) {
+      debugPrint('Trial reminder scheduling error: $e');
+    }
+  }
+
   /// Premium hatırlatıcıyı iptal et (premium olunca)
   Future<void> cancelPremiumReminder() async {
     await _notifications.cancel(2);

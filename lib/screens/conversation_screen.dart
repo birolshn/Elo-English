@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_recognition_error.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import '../services/speech_error_helper.dart';
 import '../services/tts_service.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -11,6 +13,12 @@ import '../providers/auth_provider.dart';
 import '../models/models.dart';
 import '../widgets/premium_popup.dart';
 import '../providers/conversation_provider.dart';
+import '../screens/call_screen.dart';
+import '../widgets/pronunciation_dialog.dart';
+import '../services/word_bank_service.dart';
+import '../services/api_service.dart';
+import '../services/mistake_vault_service.dart';
+import '../services/premium_gate_service.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({super.key});
@@ -83,40 +91,93 @@ class _ConversationScreenState extends State<ConversationScreen>
       await _speech.cancel();
       
       _speechEnabled = await _speech.initialize(
-        onStatus: (status) async {
-          debugPrint('🎤 Conv Speech status: $status');
-          if (status == 'done' && mounted) {
-            if (_shouldBeListening) {
-              // Auto-restart if we are supposed to be listening
-              await Future.delayed(const Duration(milliseconds: 50));
-              if (_shouldBeListening && mounted) {
-                _startListening();
-              }
-            } else {
-              _pulseController.stop();
-              _pulseController.reset();
-              setState(() => _isListening = false);
-            }
-          } else if (status == 'listening' && mounted) {
-            _pulseController.repeat(reverse: true);
-            setState(() => _isListening = true);
-          }
-        },
-        onError: (error) {
-          debugPrint('❌ Conv Speech error: $error');
-          if (mounted) {
-            _pulseController.stop();
-            _pulseController.reset();
-            setState(() => _isListening = false);
-          }
-        },
+        onStatus: _onSpeechStatus,
+        onError: _onSpeechError,
       );
+      _attachSpeechListeners();
       debugPrint('🎤 Conv Speech initialized: $_speechEnabled');
     } catch (e) {
       debugPrint('❌ Speech init exception: $e');
       _speechEnabled = false;
     }
     if (mounted) setState(() {});
+  }
+
+  /// SpeechToText tekil (singleton) ve initialize() ikinci kez çağrıldığında
+  /// dinleyicileri güncellemiyor. Başka ekran (IELTS, arama, gölgeleme) kendi
+  /// dinleyicilerini bağlamış olabileceği için her listen() öncesi yeniden bağlanır.
+  void _attachSpeechListeners() {
+    _speech.statusListener = _onSpeechStatus;
+    _speech.errorListener = _onSpeechError;
+  }
+
+  // Tanıma motoru açılıp hemen kapanıyorsa (sonuçsuz) sonsuz yeniden başlatmayı önle
+  DateTime? _listenStartedAt;
+  int _rapidFailures = 0;
+
+  Future<void> _onSpeechStatus(String status) async {
+    debugPrint('🎤 Conv Speech status: $status');
+    if (status == 'done' && mounted) {
+      if (_shouldBeListening) {
+        final startedAt = _listenStartedAt;
+        if (startedAt != null &&
+            DateTime.now().difference(startedAt) < const Duration(seconds: 1)) {
+          _rapidFailures++;
+          if (_rapidFailures >= 3) {
+            _handleSpeechUnavailable();
+            return;
+          }
+        }
+        // Auto-restart if we are supposed to be listening
+        await Future.delayed(const Duration(milliseconds: 50));
+        if (_shouldBeListening && mounted) {
+          _startListening();
+        }
+      } else {
+        _pulseController.stop();
+        _pulseController.reset();
+        setState(() => _isListening = false);
+      }
+    } else if (status == 'listening' && mounted) {
+      _pulseController.repeat(reverse: true);
+      setState(() => _isListening = true);
+    }
+  }
+
+  void _onSpeechError(dynamic error) {
+    debugPrint('❌ Conv Speech error: $error');
+    if (!mounted) return;
+    _pulseController.stop();
+    _pulseController.reset();
+    setState(() => _isListening = false);
+    final errorMsg = error is SpeechRecognitionError ? error.errorMsg : '$error';
+    if (SpeechErrorHelper.isFatal(errorMsg)) _handleSpeechUnavailable();
+  }
+
+  /// Tanıma motoru çalışmıyor: yeniden denemeyi bırak, kullanıcıya klavyeyi öner
+  void _handleSpeechUnavailable() {
+    _shouldBeListening = false;
+    _pendingAutoSend = false;
+    _rapidFailures = 0;
+    _speech.cancel();
+    if (!mounted) return;
+    _pulseController.stop();
+    _pulseController.reset();
+    setState(() => _isListening = false);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text(SpeechErrorHelper.unavailableMessage),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Type instead',
+          onPressed: () {
+            if (mounted) setState(() => _isKeyboardMode = true);
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _initTts() async {
@@ -153,6 +214,10 @@ class _ConversationScreenState extends State<ConversationScreen>
     }
 
     _shouldBeListening = true;
+    _listenStartedAt = DateTime.now();
+    _attachSpeechListeners();
+    // AI konuşurken mikrofon açılırsa sesi kes (yankı olmasın)
+    _ttsService.stop();
 
     // Mevcut metni koru - tekrar basınca üstüne eklensin
     final existingText = _messageController.text.trim();
@@ -160,6 +225,7 @@ class _ConversationScreenState extends State<ConversationScreen>
     // Önce dinlemeyi başlat (await yok - gecikmeyi önler)
     _speech.listen(
       onResult: (result) {
+        if (result.recognizedWords.isNotEmpty) _rapidFailures = 0;
         debugPrint('🎤 Conv Recognized: ${result.recognizedWords} (final: ${result.finalResult})');
         setState(() {
           if (existingText.isNotEmpty) {
@@ -205,23 +271,72 @@ class _ConversationScreenState extends State<ConversationScreen>
     await _ttsService.speak(text);
   }
 
+  final PremiumGateService _gate = PremiumGateService();
+
+  /// "Great session" teklifi için en az bu kadar kullanıcı mesajı
+  static const int _sessionWinMinMessages = 4;
+
+  /// Geri çıkış: ücretsiz ve giriş yapmış kullanıcıya iyi bir oturumdan sonra
+  /// günde bir kez premium teklifi göster (onboarding denemesinde gösterme)
+  Future<void> _handleExit() async {
+    final provider = context.read<ConversationProvider>();
+    provider.stopTimer();
+    final isPremium = context.read<PremiumProvider>().isPremium;
+    final isLoggedIn = context.read<AuthProvider>().isAuthenticated;
+    final userMessages = provider.messages.where((m) => m.role == 'user').length;
+
+    if (!isPremium &&
+        isLoggedIn &&
+        userMessages >= _sessionWinMinMessages &&
+        await _gate.shouldShowSessionWin()) {
+      await _gate.markSessionWinShown();
+      if (!mounted) return;
+      final corrections = provider.messages
+          .expand((m) => m.grammarCorrections ?? const <String>[])
+          .where((c) => MistakeVaultService.parseCorrection(c, '') != null)
+          .length;
+      await showSessionWinSheet(
+        context,
+        userMessages: userMessages,
+        minutes: provider.elapsedMinutes,
+        corrections: corrections,
+      );
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
   Future<void> _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
     final message = _messageController.text.trim();
     _messageController.clear();
     final provider = context.read<ConversationProvider>();
-    await provider.sendMessage(message);
-    // Otomatik sesli okuma - AI cevabını hemen oku
-    final messages = provider.messages;
-    if (messages.isNotEmpty && messages.last.role == 'assistant') {
-      _speak(messages.last.content);
-    }
+    _scrollToBottom();
+    // Önceki cevabın seslendirmesi sürüyorsa kes
+    await _ttsService.stop();
+
+    await provider.sendStreamingMessage(
+      userMessage: message,
+      // Cümleler geldikçe sırayla seslendir (yalnızca ilk cümle değil)
+      onSentenceReady: (sentence) {
+        if (mounted) _ttsService.enqueue(sentence);
+      },
+      onStreamingCompleted: () {
+        if (mounted) _scrollToBottom();
+      },
+    );
     _scrollToBottom();
   }
 
   void _handleTimeUp() {
     if (_hasShownTimeUpDialog) return;
     _hasShownTimeUpDialog = true;
+
+    // Süre arama modundayken dolduysa önce arama ekranını kapat; aksi halde
+    // diyalog aramanın üstünde açılır ve "Exit" yanlış ekranı kapatır.
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) {
+      Navigator.of(context).popUntil((r) => r == route);
+    }
 
     final isPremium = context.read<PremiumProvider>().isPremium;
     final conversationProvider = context.read<ConversationProvider>();
@@ -381,10 +496,7 @@ class _ConversationScreenState extends State<ConversationScreen>
               child: Row(
                 children: [
                   IconButton(
-                    onPressed: () {
-                      conversationProvider.stopTimer();
-                      Navigator.pop(context);
-                    },
+                    onPressed: _handleExit,
                     icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
                   ),
                   Expanded(
@@ -438,7 +550,40 @@ class _ConversationScreenState extends State<ConversationScreen>
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.phone_in_talk_rounded, color: Colors.white),
+                    tooltip: 'Hands-Free Phone Call Mode',
+                    onPressed: () async {
+                      // Ücretsiz kullanıcının bugünkü arama dakikası bittiyse aramayı açma
+                      if (!context.read<PremiumProvider>().isPremium &&
+                          await _gate.remainingFreeCallSeconds() <= 0) {
+                        if (!context.mounted) return;
+                        showPremiumPopup(context, triggerContext: 'call_limit');
+                        return;
+                      }
+                      // Dikte edilen metni göndermeden mikrofonu ve sesi kapat
+                      _shouldBeListening = false;
+                      _pendingAutoSend = false;
+                      _pulseController.stop();
+                      _pulseController.reset();
+                      setState(() => _isListening = false);
+                      await _speech.cancel();
+                      await _ttsService.stop();
+                      if (!context.mounted) return;
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CallScreen(scenario: scenario),
+                        ),
+                      );
+                      // Arama ekranı kendi STT dinleyicilerini bağlamıştı; geri al
+                      if (mounted) {
+                        _attachSpeechListeners();
+                        _scrollToBottom();
+                      }
+                    },
+                  ),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white),
                     onPressed: () {
@@ -559,6 +704,66 @@ class _ConversationScreenState extends State<ConversationScreen>
               ],
             ],
           ),
+
+          // Telaffuz & Vurgu Analizi Butonu/Rozeti (Item 2.2)
+          if (isUser)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, right: 48),
+              child: InkWell(
+                onTap: () {
+                  if (message.pronunciationResult != null) {
+                    PronunciationBottomSheet.show(context, message.pronunciationResult!, message.content);
+                  } else {
+                    // Quick analysis on demand
+                    ApiService().evaluatePronunciation(
+                      targetSentence: message.content,
+                      spokenText: message.content,
+                    ).then((res) {
+                      if (context.mounted) {
+                        PronunciationBottomSheet.show(context, res, message.content);
+                      }
+                    });
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (message.pronunciationResult != null
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF2563EB))
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.record_voice_over_rounded,
+                        size: 14,
+                        color: message.pronunciationResult != null
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF2563EB),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        message.pronunciationResult != null
+                            ? 'Pronunciation: ${message.pronunciationResult!.overallScore}% 🎯'
+                            : 'Check Accent & Phonetics 🎯',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: message.pronunciationResult != null
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF2563EB),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           if (message.feedback != null ||
               (message.grammarCorrections?.isNotEmpty ?? false) ||
               (message.vocabularySuggestions?.isNotEmpty ?? false))
@@ -580,14 +785,43 @@ class _ConversationScreenState extends State<ConversationScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.lightbulb_outline, size: 16, color: Colors.orange),
-              SizedBox(width: 4),
-              Text(
-                'Feedback',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              const Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, size: 16, color: Colors.orange),
+                  SizedBox(width: 4),
+                  Text(
+                    'AI Feedback',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ],
               ),
+              // Yalnızca gerçekten deftere kaydedilen düzeltmeler için rozet göster
+              if (message.grammarCorrections?.any(
+                    (c) => MistakeVaultService.parseCorrection(c, '') != null,
+                  ) ??
+                  false)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.menu_book_rounded, size: 10, color: Colors.brown),
+                      SizedBox(width: 3),
+                      Text(
+                        'Saved to Vault 📒',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.brown),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
           if (message.feedback != null) ...[
@@ -607,11 +841,58 @@ class _ConversationScreenState extends State<ConversationScreen>
           if (message.vocabularySuggestions?.isNotEmpty ?? false) ...[
             const SizedBox(height: 8),
             const Text(
-              'Vocabulary Suggestions:',
+              'Vocabulary Suggestions (Tap star to save):',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
             ),
             ...message.vocabularySuggestions!.map(
-              (v) => Text('• $v', style: const TextStyle(fontSize: 11)),
+              (v) => Padding(
+                padding: const EdgeInsets.only(top: 3, bottom: 3),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('• $v', style: const TextStyle(fontSize: 11)),
+                    ),
+                    InkWell(
+                      onTap: () async {
+                        await WordBankService().saveWord(
+                          word: v,
+                          meaning: 'Saved from conversation feedback',
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Added "$v" to Word Bank! ⭐️'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.star_rounded, size: 12, color: Colors.orange),
+                            SizedBox(width: 2),
+                            Text(
+                              'Save',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ],

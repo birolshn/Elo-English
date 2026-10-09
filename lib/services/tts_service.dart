@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -24,32 +25,54 @@ class TtsService {
   // ============================================================================
 
   bool _initialized = false;
+  bool _nativeReady = false;
   String _currentLanguage = 'en-US';
   VoidCallback? _onComplete;
 
+  // Cümle kuyruğu (Streaming - Item 2.3): cümleler geldikçe sırayla seslendirilir
+  final List<_SpeechItem> _queue = [];
+  bool _isSpeaking = false;
+  // stop()/speak() ile artar; eski (iptal edilmiş) async işleri geçersiz kılar
+  int _generation = 0;
+  int _fileCounter = 0;
+  Completer<void>? _idleCompleter;
+
   bool get useCloudTts => _googleApiKey.isNotEmpty;
+
+  /// Kuyrukta bekleyen veya çalan bir ses var mı
+  bool get isSpeaking => _isSpeaking || _queue.isNotEmpty;
 
   TtsService._internal() {
     // Cloud TTS ses bitiş dinleyicisi
-    _audioPlayer.onPlayerComplete.listen((event) {
-      if (_onComplete != null) _onComplete!();
-    });
+    _audioPlayer.onPlayerComplete.listen((event) => _onUtteranceDone());
     // Yerel TTS ses bitiş dinleyicisi
-    _flutterTts.setCompletionHandler(() {
-      if (_onComplete != null) _onComplete!();
+    _flutterTts.setCompletionHandler(_onUtteranceDone);
+    _flutterTts.setErrorHandler((msg) {
+      debugPrint('Native TTS error: $msg');
+      _onUtteranceDone();
     });
   }
 
   /// Initialize TTS
   Future<void> initialize({String language = 'en-US'}) async {
-    if (_initialized) return;
+    if (_initialized) {
+      // Servis tekil (singleton); farklı ekranlar farklı aksan isteyebilir
+      if (language != _currentLanguage) await setLanguage(language);
+      return;
+    }
     _currentLanguage = language;
 
     if (!useCloudTts) {
-      await _initNativeTts(language);
+      await _ensureNativeReady();
     }
 
     _initialized = true;
+  }
+
+  Future<void> _ensureNativeReady() async {
+    if (_nativeReady) return;
+    _nativeReady = true;
+    await _initNativeTts(_currentLanguage);
   }
 
   /// Native (Device) TTS Ayarları
@@ -73,19 +96,69 @@ class TtsService {
     await _flutterTts.setPitch(0.95);
   }
 
-  /// Speak text (Cloud veya Native seçer)
+  /// Metni seslendirir; çalan sesi ve kuyruğu keser.
+  /// Dönen Future, ses bittiğinde (veya kesildiğinde) tamamlanır.
   Future<void> speak(String text) async {
-    if (!_initialized) await initialize(language: _currentLanguage);
+    await stop();
+    enqueue(text);
+    await _idleCompleter?.future;
+  }
 
-    if (useCloudTts) {
-      await _speakWithCloudTts(text);
-    } else {
-      await _flutterTts.speak(text);
+  /// Metni kuyruğun sonuna ekler; önceki cümleler bitince seslendirilir.
+  /// Cloud TTS'te ses dosyası hemen hazırlanmaya başlar (cümleler arası boşluk olmasın diye).
+  void enqueue(String text) {
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+    _idleCompleter ??= Completer<void>();
+    final prefetch = useCloudTts ? _synthesizeCloud(clean, _generation) : null;
+    _queue.add(_SpeechItem(clean, prefetch));
+    if (!_isSpeaking) _playNext();
+  }
+
+  Future<void> _playNext() async {
+    if (_queue.isEmpty) {
+      _isSpeaking = false;
+      _completeIdle();
+      _onComplete?.call();
+      return;
+    }
+
+    _isSpeaking = true;
+    final gen = _generation;
+    final item = _queue.removeAt(0);
+
+    try {
+      if (!_initialized) await initialize(language: _currentLanguage);
+      final path = item.cloudAudioPath != null ? await item.cloudAudioPath : null;
+      if (gen != _generation) return; // Bu arada stop() çağrıldı
+
+      if (path != null) {
+        await _audioPlayer.play(DeviceFileSource(path));
+      } else {
+        // Cloud kapalı ya da hata verdi: telefondaki sese düş (Fallback)
+        await _ensureNativeReady();
+        if (gen != _generation) return;
+        await _flutterTts.speak(item.text);
+      }
+    } catch (e) {
+      debugPrint('TTS playback error: $e');
+      if (gen == _generation) _onUtteranceDone();
     }
   }
 
-  /// Google Cloud TTS REST API Çağrısı
-  Future<void> _speakWithCloudTts(String text) async {
+  void _onUtteranceDone() {
+    if (!_isSpeaking) return;
+    _playNext();
+  }
+
+  void _completeIdle() {
+    final completer = _idleCompleter;
+    _idleCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+  }
+
+  /// Google Cloud TTS REST API Çağrısı - MP3 dosya yolunu döndürür (hata olursa null)
+  Future<String?> _synthesizeCloud(String text, int gen) async {
     try {
       final url = Uri.parse(
         'https://texttospeech.googleapis.com/v1/text:synthesize?key=$_googleApiKey',
@@ -98,51 +171,55 @@ class TtsService {
               ? 'en-GB-Neural2-B'
               : 'en-US-Neural2-H';
 
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          "input": {"text": text},
-          "voice": {"languageCode": _currentLanguage, "name": voiceName},
-          "audioConfig": {"audioEncoding": "MP3"},
-        }),
-      );
+      final response = await http
+          .post(
+            url,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              "input": {"text": text},
+              "voice": {"languageCode": _currentLanguage, "name": voiceName},
+              "audioConfig": {"audioEncoding": "MP3"},
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (gen != _generation) return null;
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final String audioContent = data['audioContent'];
         final Uint8List audioBytes = base64Decode(audioContent);
 
-        // Sesi geçici bir dosyaya kaydet, AVPlayer uzantıya ihtiyaç duyar
+        // Sesi geçici bir dosyaya kaydet, AVPlayer uzantıya ihtiyaç duyar.
+        // Kuyruktaki cümleler birbirinin dosyasını ezmesin diye dönen isimler.
         final tempDir = await getTemporaryDirectory();
-        final file = File('${tempDir.path}/tts_audio.mp3');
+        final file = File('${tempDir.path}/tts_audio_${_fileCounter++ % 32}.mp3');
         await file.writeAsBytes(audioBytes);
-
-        // Sesi audioplayers paketi ile oynat
-        await _audioPlayer.play(DeviceFileSource(file.path));
-      } else {
-        debugPrint('Cloud TTS Hatası: ${response.body}');
-        // Hata olursa (örneğin limit biterse) telefondaki sese düş (Fallback)
-        await _flutterTts.speak(text);
+        return file.path;
       }
+      debugPrint('Cloud TTS Hatası: ${response.body}');
     } catch (e) {
       debugPrint('Cloud TTS Exception: $e');
-      await _flutterTts.speak(text);
     }
+    return null;
   }
 
-  /// Stop speaking
+  /// Stop speaking (kuyruğu da temizler)
   Future<void> stop() async {
-    if (useCloudTts) {
+    _generation++;
+    _queue.clear();
+    _isSpeaking = false;
+    _completeIdle();
+    try {
       await _audioPlayer.stop();
-    }
+    } catch (_) {}
     await _flutterTts.stop();
   }
 
   /// Reconfigure for a different language (e.g., 'en-GB' for IELTS)
   Future<void> setLanguage(String language) async {
     _currentLanguage = language;
-    if (!useCloudTts) {
+    if (_nativeReady) {
       await _flutterTts.setLanguage(language);
       if (Platform.isIOS) {
         await _selectBestNativeVoice(language);
@@ -150,9 +227,68 @@ class TtsService {
     }
   }
 
-  /// Set completion handler
-  void setCompletionHandler(VoidCallback handler) {
+  /// Set completion handler (kuyruktaki tüm sesler bittiğinde çağrılır)
+  void setCompletionHandler(VoidCallback? handler) {
     _onComplete = handler;
+  }
+
+  /// Telefon araması modu için hoparlör / ahize yönlendirmesi
+  Future<void> setSpeakerphone(bool speakerOn) async {
+    try {
+      await _audioPlayer.setAudioContext(
+        AudioContext(
+          // Mikrofonla birlikte çalışabilmesi için playAndRecord; Bluetooth
+          // kulaklık (AirPods vb.) bağlıysa ses oraya gitsin.
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playAndRecord,
+            options: {
+              if (speakerOn) AVAudioSessionOptions.defaultToSpeaker,
+              AVAudioSessionOptions.allowBluetooth,
+              AVAudioSessionOptions.allowBluetoothA2DP,
+            },
+          ),
+          // Android: medya kanalı hoparlör/kulaklığa, iletişim kanalı ahizeye gider
+          android: speakerOn
+              ? const AudioContextAndroid()
+              : const AudioContextAndroid(
+                  usageType: AndroidUsageType.voiceCommunication,
+                  contentType: AndroidContentType.speech,
+                ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Audio route error: $e');
+    }
+    if (Platform.isIOS && _nativeReady) {
+      await _flutterTts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playAndRecord,
+        [
+          if (speakerOn) IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+        ],
+        IosTextToSpeechAudioMode.voiceChat,
+      );
+    }
+  }
+
+  /// Arama bittiğinde varsayılan ses yönlendirmesine dön
+  Future<void> resetAudioRoute() async {
+    try {
+      await _audioPlayer.setAudioContext(AudioContextConfig().build());
+    } catch (e) {
+      debugPrint('Audio route reset error: $e');
+    }
+    if (Platform.isIOS && _nativeReady) {
+      await _flutterTts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+        ],
+        IosTextToSpeechAudioMode.voicePrompt,
+      );
+    }
   }
 
   /// Eski Yerel TTS Ses Seçimi (Sadece Cloud API Key boşsa çalışır)
@@ -206,4 +342,11 @@ class TtsService {
       }
     } catch (_) {}
   }
+}
+
+class _SpeechItem {
+  final String text;
+  final Future<String?>? cloudAudioPath;
+
+  _SpeechItem(this.text, this.cloudAudioPath);
 }
