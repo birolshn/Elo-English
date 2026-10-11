@@ -33,7 +33,11 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
   bool _isMuted = false;
   bool _isSpeakerOn = true;
   String _currentSubtitle = 'Connecting to AI Tutor...';
+  // Bu dinleme oturumunda tanınan metin
   String _recognizedWords = '';
+  // Aynı konuşma sırasında önceki (iOS'un kendiliğinden kapattığı) oturumlardan
+  // biriken metin. Kullanıcı susana kadar sıra onda kalır.
+  String _committedWords = '';
   Timer? _silenceTimer;
   Timer? _restartTimer;
   Timer? _callDurationTimer;
@@ -50,8 +54,10 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
   String _aiSubtitle = '';
   int _consecutiveErrors = 0;
 
-  // Kullanıcı konuşmayı bıraktıktan sonra cevabı göndermek için beklenen sessizlik
-  static const Duration _silenceThreshold = Duration(milliseconds: 1600);
+  // Kullanıcı konuşmayı bıraktıktan sonra cevabı göndermek için beklenen sessizlik.
+  // Düşünmek için verilen kısa duraklamalar cümleyi bölmesin diye cömert tutuldu;
+  // kullanıcı daireye dokunarak hemen de gönderebilir.
+  static const Duration _silenceThreshold = Duration(milliseconds: 2800);
 
   late AnimationController _rippleController;
   late AnimationController _waveController;
@@ -224,18 +230,32 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _startListening() async {
+  /// Kullanıcının bu sıradaki tüm konuşması (önceki oturumlar + mevcut oturum)
+  String get _turnTranscript => [_committedWords, _recognizedWords.trim()]
+      .where((part) => part.isNotEmpty)
+      .join(' ');
+
+  /// [continueTurn]: iOS tanıma oturumunu kapattı ama kullanıcı hâlâ konuşuyor;
+  /// biriken metni ve sessizlik sayacını koruyarak dinlemeye devam et.
+  Future<void> _startListening({bool continueTurn = false}) async {
     if (!mounted || _isEnding) return;
 
-    _silenceTimer?.cancel();
     _restartTimer?.cancel();
+    if (!continueTurn) {
+      _silenceTimer?.cancel();
+      _committedWords = '';
+      _isSubmitting = false;
+    }
     _recognizedWords = '';
-    _isSubmitting = false;
     final session = ++_listenSession;
 
     setState(() {
       _callState = CallState.userSpeaking;
-      _currentSubtitle = _isMuted ? 'Microphone muted' : 'Listening to you... (Speak naturally)';
+      _currentSubtitle = _isMuted
+          ? 'Microphone muted'
+          : _turnTranscript.isNotEmpty
+              ? '"$_turnTranscript"'
+              : 'Listening to you... (Speak naturally)';
     });
 
     // Sessizdeyken sırayı kullanıcıda bekletiyoruz; unmute olunca dinleme başlar
@@ -254,8 +274,10 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
           listenMode: stt.ListenMode.dictation,
           partialResults: true,
           cancelOnError: false,
-          listenFor: const Duration(seconds: 60),
-          pauseFor: const Duration(seconds: 5),
+          // Sırayı bitiren bizim sessizlik sayacımız; bu süreler sadece üst sınır.
+          // iOS yine de ~1 dk'da oturumu kapatabilir, o durumda kesintisiz devam ediliyor.
+          listenFor: const Duration(minutes: 10),
+          pauseFor: const Duration(seconds: 30),
         ),
       );
     } catch (e) {
@@ -268,33 +290,66 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
     if (!mounted || session != _listenSession || _callState != CallState.userSpeaking) return;
     _consecutiveErrors = 0;
 
+    final changed = result.recognizedWords != _recognizedWords;
     setState(() {
       _recognizedWords = result.recognizedWords;
-      if (_recognizedWords.isNotEmpty) {
-        _currentSubtitle = '"$_recognizedWords"';
+      if (_turnTranscript.isNotEmpty) {
+        _currentSubtitle = '"$_turnTranscript"';
       }
     });
 
     if (_recognizedWords.trim().isEmpty) return;
 
-    if (result.finalResult) {
-      _submitUserTurn();
-      return;
+    // VAD: kullanıcı belirli bir süre yeni bir şey söylemezse sırayı gönder.
+    // (iOS duraklamalarda aynı metni tekrar gönderebiliyor; sayaç sadece yeni
+    // kelime gelince sıfırlanır.)
+    if (changed || _silenceTimer?.isActive != true) {
+      _silenceTimer?.cancel();
+      _silenceTimer = Timer(_silenceThreshold, _submitUserTurn);
     }
 
-    // VAD: kullanıcı belirli bir süre sessiz kalırsa cümleyi otomatik gönder
-    _silenceTimer?.cancel();
-    _silenceTimer = Timer(_silenceThreshold, () {
-      if (session == _listenSession) _submitUserTurn();
+    if (result.finalResult) {
+      // iOS oturumu kapattı (≈1 dk sınırı / duraklama); kullanıcı konuşmaya
+      // devam ediyor olabilir, sırayı bitirmeden dinlemeyi sürdür.
+      _continueTurnInNewSession();
+    }
+  }
+
+  /// Mevcut oturumun metnini sıranın metnine ekler ve yeni bir oturum açar
+  void _continueTurnInNewSession() {
+    if (_isSubmitting || _isEnding || !mounted) return;
+    final words = _recognizedWords.trim();
+    if (words.isNotEmpty) {
+      _committedWords = _committedWords.isEmpty ? words : '$_committedWords $words';
+    }
+    _recognizedWords = '';
+    // Kapanan oturumdan gelebilecek geç callback'leri yok say
+    final session = ++_listenSession;
+    _restartTimer?.cancel();
+    _restartTimer = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || _isEnding || session != _listenSession) return;
+      if (_callState == CallState.userSpeaking && !_isMuted && !_isSubmitting) {
+        _startListening(continueTurn: true);
+      }
     });
+  }
+
+  /// Kullanıcı daireye dokunarak beklemeden gönderebilir
+  void _onAvatarTap() {
+    if (_callState == CallState.userSpeaking && _turnTranscript.isNotEmpty) {
+      _submitUserTurn();
+    }
   }
 
   void _onSpeechStatus(String status) {
     debugPrint('📞 Call STT status: $status');
     if (!mounted || _isEnding || _callState != CallState.userSpeaking || _isMuted) return;
     if (status == stt.SpeechToText.doneStatus || status == stt.SpeechToText.notListeningStatus) {
-      if (_recognizedWords.trim().isNotEmpty) {
-        _submitUserTurn();
+      // Yeni oturum zaten planlandıysa (finalResult geldi) tekrar işlem yapma
+      if (_restartTimer?.isActive == true) return;
+      if (_turnTranscript.isNotEmpty) {
+        // Oturum kapandı ama sıra bitmedi: sessizlik sayacı karar verecek
+        _continueTurnInNewSession();
       } else {
         // Hiçbir şey söylenmeden oturum kapandı (iOS pauseFor / Android timeout)
         _scheduleListenRestart(_listenSession);
@@ -314,7 +369,7 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
     }
 
     // Tanıma motoru hiç başlatılamıyorsa (ör. iOS 26.4 simülatörü) sonsuz yeniden deneme yapma
-    if (SpeechErrorHelper.isFatal(error.errorMsg) && _recognizedWords.trim().isEmpty) {
+    if (SpeechErrorHelper.isFatal(error.errorMsg) && _turnTranscript.isEmpty) {
       _restartTimer?.cancel();
       _listenSession++;
       _speech.cancel();
@@ -327,8 +382,9 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
       return;
     }
 
-    if (_recognizedWords.trim().isNotEmpty) {
-      _submitUserTurn();
+    if (_turnTranscript.isNotEmpty) {
+      // Konuşma sürerken gelen geçici hata (ör. "no match") sırayı bitirmesin
+      if (_restartTimer?.isActive != true) _continueTurnInNewSession();
     } else {
       _scheduleListenRestart(_listenSession);
     }
@@ -350,14 +406,16 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _submitUserTurn() async {
-    if (_isSubmitting || _isEnding || !mounted) return;
+    if (_isSubmitting || _isEnding || !mounted || _callState != CallState.userSpeaking) return;
     _isSubmitting = true;
     _silenceTimer?.cancel();
     _restartTimer?.cancel();
     // Bu oturumdan gelecek geç callback'leri geçersiz kıl
     _listenSession++;
 
-    final spokenText = _recognizedWords.trim();
+    final spokenText = _turnTranscript;
+    _committedWords = '';
+    _recognizedWords = '';
     await _speech.stop();
     if (!mounted || _isEnding) return;
 
@@ -394,6 +452,7 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
       if (_callState == CallState.userSpeaking) {
         setState(() {
           _recognizedWords = '';
+          _committedWords = '';
           _currentSubtitle = 'Microphone muted';
         });
       }
@@ -461,51 +520,57 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
                       // Sohbet moduna dön (konuşma geçmişi korunur)
                       onPressed: _leaveCall,
                     ),
-                    Column(
-                      children: [
-                        Text(
-                          widget.scenario.title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            widget.scenario.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: _callState == CallState.userSpeaking
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFF38BDF8),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _formattedDuration,
+                                style: const TextStyle(color: Colors.white70, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          if (!_isPremium && _freeSecondsLeft != null) ...[
+                            const SizedBox(height: 6),
                             Container(
-                              width: 8,
-                              height: 8,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                               decoration: BoxDecoration(
-                                color: _callState == CallState.userSpeaking
-                                    ? const Color(0xFF10B981)
-                                    : const Color(0xFF38BDF8),
-                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Free: $_formattedFreeLeft left today',
+                                style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.w600),
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _formattedDuration,
-                              style: const TextStyle(color: Colors.white70, fontSize: 13),
-                            ),
                           ],
-                        ),
-                        if (!_isPremium && _freeSecondsLeft != null) ...[
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              'Free: $_formattedFreeLeft left today',
-                              style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontWeight: FontWeight.w600),
-                            ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white70, size: 24),
@@ -538,37 +603,40 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
                     },
                   ),
 
-                  // Avatar Circle
-                  Container(
-                    width: 130,
-                    height: 130,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: _callState == CallState.userSpeaking
-                            ? [const Color(0xFF059669), const Color(0xFF10B981)]
-                            : [const Color(0xFF2563EB), const Color(0xFF38BDF8)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: (_callState == CallState.userSpeaking
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFF38BDF8))
-                              .withValues(alpha: 0.4),
-                          blurRadius: 30,
-                          spreadRadius: 8,
+                  // Avatar Circle (konuşurken dokununca hemen gönderir)
+                  GestureDetector(
+                    onTap: _onAvatarTap,
+                    child: Container(
+                      width: 130,
+                      height: 130,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _callState == CallState.userSpeaking
+                              ? [const Color(0xFF059669), const Color(0xFF10B981)]
+                              : [const Color(0xFF2563EB), const Color(0xFF38BDF8)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Icon(
-                        _callState == CallState.userSpeaking
-                            ? Icons.mic_rounded
-                            : Icons.auto_awesome_rounded,
-                        color: Colors.white,
-                        size: 56,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_callState == CallState.userSpeaking
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFF38BDF8))
+                                .withValues(alpha: 0.4),
+                            blurRadius: 30,
+                            spreadRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Icon(
+                          _callState == CallState.userSpeaking
+                              ? Icons.mic_rounded
+                              : Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 56,
+                        ),
                       ),
                     ),
                   ),
@@ -582,7 +650,11 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
                 _callState == CallState.aiSpeaking
                     ? 'AI Tutor Speaking...'
                     : _callState == CallState.userSpeaking
-                        ? (_isMuted ? 'Muted - tap Unmute to talk' : 'Listening to you (Hands-Free)...')
+                        ? (_isMuted
+                            ? 'Muted - tap Unmute to talk'
+                            : _turnTranscript.isNotEmpty
+                                ? 'Listening... tap the circle when done'
+                                : 'Listening to you (Hands-Free)...')
                         : _callState == CallState.processing
                             ? 'Processing speech...'
                             : 'Connecting...',
