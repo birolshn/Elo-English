@@ -26,6 +26,7 @@ import 'providers/premium_provider.dart';
 import 'providers/ielts_provider.dart';
 import 'providers/scenario_provider.dart';
 import 'services/notification_service.dart';
+import 'services/api_service.dart';
 import 'package:tiktok_business_sdk/tiktok_business_sdk.dart';
 
 void main() async {
@@ -47,6 +48,7 @@ void main() async {
   // Diğer üçüncü taraf SDK'ları arka planda ve hata korumalı olarak başlat.
   // Bu sayede hot restart yapıldığında veya bir SDK kilitlendiğinde uygulama açılışı engellenmez.
   _initializeThirdPartySDKs();
+  ApiService.warmUp();
 
   runApp(const MyApp());
 }

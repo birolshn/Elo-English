@@ -33,6 +33,15 @@ class ApiService {
     }
   }
 
+  /// Render ücretsiz planda sunucu boşta kalınca uyuyor; ilk gerçek istekten
+  /// önce uyandırmak için cevabı beklenmeyen bir istek atar.
+  static void warmUp() {
+    http
+        .get(Uri.parse('$baseUrl/health'))
+        .timeout(const Duration(seconds: 70))
+        .then((_) {}, onError: (_) {});
+  }
+
   Future<List<Scenario>> getScenarios() async {
     try {
       final response = await http.get(

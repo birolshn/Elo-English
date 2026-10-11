@@ -11,6 +11,7 @@ import '../providers/premium_provider.dart';
 import '../services/premium_gate_service.dart';
 import '../widgets/premium_popup.dart';
 import '../services/tts_service.dart';
+import '../services/api_service.dart';
 import '../services/speech_error_helper.dart';
 
 enum CallState { connecting, aiSpeaking, userSpeaking, processing }
@@ -127,6 +128,8 @@ class _CallScreenState extends State<CallScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _initCall() async {
+    // Açılış cümlesi yerelde; ilk backend isteği kullanıcının cevabı olacak
+    ApiService.warmUp();
     _isPremium = context.read<PremiumProvider>().isPremium;
     if (!_isPremium) {
       final left = await _gate.remainingFreeCallSeconds();

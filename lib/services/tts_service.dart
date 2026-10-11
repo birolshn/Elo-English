@@ -15,7 +15,10 @@ class TtsService {
   factory TtsService() => _instance;
 
   final FlutterTts _flutterTts = FlutterTts();
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  // Cloud TTS: her cümle kendi oynatıcısında çalar. audioplayers (iOS) bitiş
+  // olayını gönderdikten SONRA oynatıcıyı release() ediyor; aynı oynatıcıya
+  // hemen sonraki cümle yüklenirse bu geç release onu susturuyordu.
+  AudioPlayer? _currentPlayer;
 
   // ============================================================================
   // ADIM 1 - GOOGLE CLOUD API KEY
@@ -43,8 +46,6 @@ class TtsService {
   bool get isSpeaking => _isSpeaking || _queue.isNotEmpty;
 
   TtsService._internal() {
-    // Cloud TTS ses bitiş dinleyicisi
-    _audioPlayer.onPlayerComplete.listen((event) => _onUtteranceDone());
     // Yerel TTS ses bitiş dinleyicisi
     _flutterTts.setCompletionHandler(_onUtteranceDone);
     _flutterTts.setErrorHandler((msg) {
@@ -133,7 +134,7 @@ class TtsService {
       if (gen != _generation) return; // Bu arada stop() çağrıldı
 
       if (path != null) {
-        await _audioPlayer.play(DeviceFileSource(path));
+        await _playFile(path, gen);
       } else {
         // Cloud kapalı ya da hata verdi: telefondaki sese düş (Fallback)
         await _ensureNativeReady();
@@ -143,6 +144,23 @@ class TtsService {
     } catch (e) {
       debugPrint('TTS playback error: $e');
       if (gen == _generation) _onUtteranceDone();
+    }
+  }
+
+  Future<void> _playFile(String path, int gen) async {
+    final player = AudioPlayer();
+    _currentPlayer = player;
+    player.onPlayerComplete.first.then((_) {
+      if (_currentPlayer == player) _currentPlayer = null;
+      player.dispose();
+      if (gen == _generation) _onUtteranceDone();
+    });
+    try {
+      await player.play(DeviceFileSource(path));
+    } catch (_) {
+      if (_currentPlayer == player) _currentPlayer = null;
+      player.dispose();
+      rethrow;
     }
   }
 
@@ -210,9 +228,14 @@ class TtsService {
     _queue.clear();
     _isSpeaking = false;
     _completeIdle();
-    try {
-      await _audioPlayer.stop();
-    } catch (_) {}
+    final player = _currentPlayer;
+    _currentPlayer = null;
+    if (player != null) {
+      try {
+        await player.stop();
+      } catch (_) {}
+      player.dispose();
+    }
     await _flutterTts.stop();
   }
 
@@ -235,7 +258,8 @@ class TtsService {
   /// Telefon araması modu için hoparlör / ahize yönlendirmesi
   Future<void> setSpeakerphone(bool speakerOn) async {
     try {
-      await _audioPlayer.setAudioContext(
+      // Yeni oluşturulan her oynatıcı bu global ayarı kullanır
+      await AudioPlayer.global.setAudioContext(
         AudioContext(
           // Mikrofonla birlikte çalışabilmesi için playAndRecord; Bluetooth
           // kulaklık (AirPods vb.) bağlıysa ses oraya gitsin.
@@ -275,7 +299,7 @@ class TtsService {
   /// Arama bittiğinde varsayılan ses yönlendirmesine dön
   Future<void> resetAudioRoute() async {
     try {
-      await _audioPlayer.setAudioContext(AudioContextConfig().build());
+      await AudioPlayer.global.setAudioContext(AudioContextConfig().build());
     } catch (e) {
       debugPrint('Audio route reset error: $e');
     }
